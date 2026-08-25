@@ -1,0 +1,28 @@
+{
+  "name": "dhanvantari-ecommerce",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Dhanvantari Ayurvedic Agencies — D2C E-Commerce Platform",
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "type-check": "turbo run type-check",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "db:migrate": "pnpm --filter @dhanvantari/api db:migrate",
+    "db:generate": "pnpm --filter @dhanvantari/api db:generate",
+    "db:seed": "pnpm --filter @dhanvantari/api db:seed",
+    "db:studio": "pnpm --filter @dhanvantari/api db:studio"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.3",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.3"
+  }
+}

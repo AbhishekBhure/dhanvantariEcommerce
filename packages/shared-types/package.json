@@ -1,0 +1,25 @@
+{
+  "name": "@dhanvantari/shared-types",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Shared TypeScript types for the Dhanvantari platform",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "type-check": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "@dhanvantari/config": "workspace:*"
+  }
+}

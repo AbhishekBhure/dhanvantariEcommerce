@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { --background: 210 20% 98%; --foreground: 222 28% 14%; --border: 214 20% 88%; --muted: 215 16% 46%; --brand: #176b52; }
+* { box-sizing: border-box; border-color: hsl(var(--border)); }
+body { margin: 0; background: hsl(var(--background)); color: hsl(var(--foreground)); font-family: Arial, sans-serif; }
+button, input { font: inherit; }
+
+.admin-shell { min-height: 100vh; display: grid; grid-template-columns: 240px 1fr; }
+.admin-sidebar { background: #123c32; color: white; padding: 28px 18px; }
+.admin-main { min-width: 0; }
+.admin-container { max-width: 1320px; margin: 0 auto; padding: 36px clamp(20px, 4vw, 56px); }
+@media (max-width: 720px) { .admin-shell { display: block; } .admin-sidebar { padding: 18px 20px; } .admin-sidebar nav { display: flex; gap: 8px; overflow-x: auto; } }

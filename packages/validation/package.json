@@ -1,0 +1,28 @@
+{
+  "name": "@dhanvantari/validation",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Shared Zod validation schemas for the Dhanvantari platform",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "type-check": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "@dhanvantari/config": "workspace:*"
+  }
+}

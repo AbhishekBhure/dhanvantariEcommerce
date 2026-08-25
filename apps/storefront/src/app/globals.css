@@ -1,0 +1,198 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── CSS Design Tokens ──────────────────────────────────────── */
+@layer base {
+  :root {
+    /* shadcn/ui compatible variables — light mode */
+    --background: 60 9% 98%;
+    --foreground: 164 33% 8%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 164 33% 8%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 164 33% 8%;
+
+    /* Brand primary: Deep Ayurvedic Green */
+    --primary: 157 57% 39%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Gold accent */
+    --secondary: 38 100% 48%;
+    --secondary-foreground: 164 33% 8%;
+
+    --muted: 150 15% 94%;
+    --muted-foreground: 157 10% 40%;
+
+    --accent: 38 100% 95%;
+    --accent-foreground: 38 100% 30%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 150 15% 88%;
+    --input: 150 15% 88%;
+    --ring: 157 57% 39%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 164 33% 6%;
+    --foreground: 60 9% 96%;
+
+    --card: 164 25% 9%;
+    --card-foreground: 60 9% 96%;
+
+    --popover: 164 25% 9%;
+    --popover-foreground: 60 9% 96%;
+
+    --primary: 157 57% 45%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 38 100% 48%;
+    --secondary-foreground: 164 33% 8%;
+
+    --muted: 164 20% 15%;
+    --muted-foreground: 157 10% 60%;
+
+    --accent: 164 25% 15%;
+    --accent-foreground: 60 9% 96%;
+
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 164 20% 18%;
+    --input: 164 20% 18%;
+    --ring: 157 57% 45%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Typography defaults */
+  h1, h2, h3 {
+    @apply font-display tracking-tight;
+  }
+
+  h4, h5, h6 {
+    @apply font-sans font-semibold;
+  }
+}
+
+/* ─── Utility Components ─────────────────────────────────────── */
+@layer components {
+  /* Skeleton loader */
+  .skeleton {
+    @apply bg-muted animate-shimmer;
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted)) 25%,
+      hsl(var(--muted-foreground) / 0.15) 50%,
+      hsl(var(--muted)) 75%
+    );
+    background-size: 200% 100%;
+  }
+
+  /* Product card hover */
+  .product-card {
+    @apply relative overflow-hidden rounded-xl bg-card border border-border 
+           transition-all duration-300 ease-out 
+           hover:shadow-lg hover:-translate-y-1 hover:border-brand-300;
+  }
+
+  /* Price display */
+  .price-current {
+    @apply text-brand-700 font-bold text-lg;
+  }
+
+  .price-mrp {
+    @apply text-muted-foreground line-through text-sm;
+  }
+
+  .price-discount {
+    @apply text-gold-600 font-semibold text-sm;
+  }
+
+  /* Badge */
+  .badge-new {
+    @apply absolute top-3 left-3 bg-gold-500 text-white text-xs font-bold px-2 py-1 rounded-full;
+  }
+
+  .badge-bestseller {
+    @apply absolute top-3 left-3 bg-brand-600 text-white text-xs font-bold px-2 py-1 rounded-full;
+  }
+
+  /* Section container */
+  .section-container {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  /* Section heading */
+  .section-heading {
+    @apply text-3xl md:text-4xl font-display font-bold text-foreground;
+  }
+
+  .section-subheading {
+    @apply text-muted-foreground text-base mt-2 max-w-2xl;
+  }
+
+  /* Button primary override for brand */
+  .btn-brand {
+    @apply bg-brand-600 hover:bg-brand-700 text-white font-semibold 
+           px-6 py-3 rounded-lg transition-all duration-200 
+           hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-gold {
+    @apply bg-gold-500 hover:bg-gold-600 text-white font-semibold 
+           px-6 py-3 rounded-lg transition-all duration-200 
+           hover:shadow-md active:scale-[0.98];
+  }
+
+  .btn-outline-brand {
+    @apply border-2 border-brand-600 text-brand-700 hover:bg-brand-50 
+           font-semibold px-6 py-3 rounded-lg transition-all duration-200;
+  }
+}
+
+/* ─── Custom scrollbar ───────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--brand-400, 157 57% 39%));
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary));
+}
+
+/* ─── Focus styles ───────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* ─── Smooth image loading ───────────────────────────────────── */
+img {
+  transition: opacity 0.3s ease;
+}
