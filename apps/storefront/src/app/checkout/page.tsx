@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check, MapPin } from "lucide-react";
+import { ArrowLeft, Check, LocateFixed, MapPin } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { Address } from "@dhanvantari/shared-types";
 import { api, ApiError } from "@/lib/api";
@@ -72,6 +72,7 @@ export default function CheckoutPage() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [isPincodeChecking, setIsPincodeChecking] = useState(false);
   const [isPincodeValid, setIsPincodeValid] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
 
   function setFieldError(field: string, message: string) {
     setFieldErrors((current) => ({ ...current, [field]: message }));
@@ -168,6 +169,51 @@ export default function CheckoutPage() {
     } finally {
       setIsPincodeChecking(false);
     }
+  }
+
+  function useCurrentLocation() {
+    if (!navigator.geolocation) {
+      setError("Location is not supported by this browser.");
+      return;
+    }
+    setIsLocating(true);
+    setError("");
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${coords.latitude}&lon=${coords.longitude}&addressdetails=1`,
+          );
+          if (!response.ok) throw new Error("Could not identify this location.");
+          const data = (await response.json()) as {
+            display_name?: string;
+            address?: Record<string, string>;
+          };
+          const location = data.address ?? {};
+          const line = [location.house_number, location.road, location.neighbourhood]
+            .filter(Boolean)
+            .join(", ");
+          setAddressForm((current) => ({
+            ...current,
+            line1: line || data.display_name?.split(",").slice(0, 2).join(", ") || current.line1,
+            city: location.city || location.town || location.village || current.city,
+            state: location.state || current.state,
+            pincode: location.postcode || current.pincode,
+          }));
+          setIsPincodeValid(false);
+          setError("Location found. Review the address and wait for pincode verification.");
+        } catch (locationError) {
+          setError(locationError instanceof Error ? locationError.message : "Could not identify this location.");
+        } finally {
+          setIsLocating(false);
+        }
+      },
+      () => {
+        setError("Location permission was denied. You can enter the address manually.");
+        setIsLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
   }
 
   async function createAddress(event: FormEvent<HTMLFormElement>) {
@@ -326,6 +372,15 @@ export default function CheckoutPage() {
               onSubmit={createAddress}
               className="mt-5 grid gap-4 border border-border p-5 sm:grid-cols-2"
             >
+              <button
+                type="button"
+                onClick={useCurrentLocation}
+                disabled={isLocating}
+                className="inline-flex items-center gap-2 text-sm font-semibold text-brand-700 sm:col-span-2"
+              >
+                <LocateFixed className="h-4 w-4" />
+                {isLocating ? "Finding your location..." : "Use current location"}
+              </button>
               <div className="sm:col-span-2">
                 <label
                   htmlFor="address-name"
