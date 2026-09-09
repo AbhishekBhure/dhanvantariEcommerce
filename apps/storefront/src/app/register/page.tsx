@@ -4,13 +4,9 @@ import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Leaf } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { api, ApiError } from "@/lib/api";
+import { registerUser } from "@/store/authSlice";
 import { useAppDispatch } from "@/store/hooks";
-import { setUser } from "@/store/authSlice";
 import { Button } from "@/components/ui/button";
-
-type RegisterResponse = { data: { user: { id: string; email: string; name: string } } };
-type MeResponse = { data: { user: Parameters<typeof setUser>[0] } };
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -28,14 +24,11 @@ export default function RegisterPage() {
     setError("");
     setIsLoading(true);
     try {
-      const sessionId = window.localStorage.getItem("dhanvantari-session-id")?.trim();
-      const headers = sessionId ? { "x-session-id": sessionId } : undefined;
-      await api.post<RegisterResponse>("/auth/register", { ...form, phone: form.phone || undefined }, { headers });
-      const me = await api.get<MeResponse>("/auth/me");
-      dispatch(setUser(me.data.user));
+      const result = await dispatch(registerUser({ ...form, phone: form.phone || undefined }));
+      if (registerUser.rejected.match(result)) throw new Error(result.payload as string ?? "Unable to create your account.");
       router.push("/cart");
     } catch (requestError) {
-      setError(requestError instanceof ApiError ? requestError.message : "Unable to create your account. Please try again.");
+      setError(requestError instanceof Error ? requestError.message : "Unable to create your account. Please try again.");
     } finally {
       setIsLoading(false);
     }

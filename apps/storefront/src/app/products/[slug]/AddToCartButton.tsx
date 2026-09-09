@@ -3,9 +3,8 @@
 import { useState } from "react";
 import { ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { api, ApiError } from "@/lib/api";
 import { useAppDispatch } from "@/store/hooks";
-import { openCart, setCart } from "@/store/cartSlice";
+import { addCartItem, openCart } from "@/store/cartSlice";
 import { toast } from "@/hooks/use-toast";
 
 export default function AddToCartButton({ productId, disabled }: { productId: string; disabled?: boolean }) {
@@ -15,25 +14,14 @@ export default function AddToCartButton({ productId, disabled }: { productId: st
   async function handleAdd() {
     setIsLoading(true);
     try {
-      const storedSessionId = window.localStorage.getItem("dhanvantari-session-id");
-      const sessionId = storedSessionId?.trim() || crypto.randomUUID();
-      window.localStorage.setItem("dhanvantari-session-id", sessionId);
-      await api.post<{ success: boolean }>(
-        "/cart/items",
-        { productId, quantity: 1 },
-        { headers: { "x-session-id": sessionId } },
-      );
-      const cartResponse = await api.get<{ data: { cart: Parameters<typeof setCart>[0] } }>(
-        "/cart",
-        { headers: { "x-session-id": sessionId } },
-      );
-      dispatch(setCart(cartResponse.data.cart));
+      const result = await dispatch(addCartItem({ productId, quantity: 1 }));
+      if (addCartItem.rejected.match(result)) throw new Error(result.payload as string ?? "Please try again.");
       dispatch(openCart());
       toast({ title: "Added to cart", description: "Your product is ready for checkout." });
     } catch (error) {
       toast({
         title: "Could not add product",
-        description: error instanceof ApiError ? error.message : "Please try again.",
+        description: error instanceof Error ? error.message : "Please try again.",
         variant: "destructive",
       });
     } finally {

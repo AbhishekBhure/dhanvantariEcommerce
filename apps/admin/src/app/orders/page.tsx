@@ -2,10 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { api, ApiError } from "@/lib/api";
-
-type Order = { id: string; orderNumber: string; status: string; total: number; createdAt: string; user: { name: string } | null };
-type Response = { data: { orders: Order[]; total: number } };
+import { loadOrders, updateOrderStatus, type Order } from "@/store/adminSlice";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
 const transitions: Record<string, string[]> = {
   CONFIRMED: ["PROCESSING", "CANCELLED"],
@@ -20,32 +18,20 @@ const transitions: Record<string, string[]> = {
 };
 
 export default function OrdersPage() {
-  const [orders, setOrders] = useState<Order[]>([]);
+  const dispatch = useAppDispatch();
+  const orders = useAppSelector((state) => state.admin.orders.items);
   const [error, setError] = useState("");
   const [updatingId, setUpdatingId] = useState("");
 
-  async function loadOrders() {
-    try {
-      const response = await api<Response>("/admin/orders?page=1&pageSize=50");
-      setOrders(response.data.orders);
-    } catch (requestError) {
-      setError(requestError instanceof ApiError ? requestError.message : "Could not load orders.");
-    }
-  }
-
-  useEffect(() => { void loadOrders(); }, []);
+  useEffect(() => { void dispatch(loadOrders()); }, [dispatch]);
 
   async function updateStatus(orderId: string, status: string) {
     setUpdatingId(orderId);
     setError("");
     try {
-      await api(`/admin/orders/${orderId}/status`, { method: "PATCH", body: JSON.stringify({ status }) });
-      await loadOrders();
-    } catch (requestError) {
-      setError(requestError instanceof ApiError ? requestError.message : "Could not update order status.");
-    } finally {
-      setUpdatingId("");
-    }
+      const result = await dispatch(updateOrderStatus({ orderId, status }));
+      if (updateOrderStatus.rejected.match(result)) setError(result.payload as string ?? "Could not update order status.");
+    } finally { setUpdatingId(""); }
   }
 
   return (

@@ -4,12 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, LogOut, Package, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { api, ApiError } from "@/lib/api";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { logout, setUser } from "@/store/authSlice";
+import { loadCurrentUser, logoutUser } from "@/store/authSlice";
 import { Button } from "@/components/ui/button";
-
-type MeResponse = { data: { user: Parameters<typeof setUser>[0] } };
 
 export default function AccountPage() {
   const router = useRouter();
@@ -19,12 +16,11 @@ export default function AccountPage() {
 
   useEffect(() => {
     if (user) return;
-    void api.get<MeResponse>("/auth/me").then((response) => dispatch(setUser(response.data.user))).catch(() => router.replace("/login")).finally(() => setIsLoading(false));
+    void dispatch(loadCurrentUser()).then((result) => { if (loadCurrentUser.rejected.match(result)) router.replace("/login"); setIsLoading(false); });
   }, [dispatch, router, user]);
 
   async function handleLogout() {
-    await api.post("/auth/logout");
-    dispatch(logout());
+    await dispatch(logoutUser());
     router.replace("/login");
   }
 

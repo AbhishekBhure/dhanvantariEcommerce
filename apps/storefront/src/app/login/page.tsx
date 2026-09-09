@@ -4,16 +4,9 @@ import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Leaf } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { api, ApiError } from "@/lib/api";
+import { loginUser } from "@/store/authSlice";
 import { useAppDispatch } from "@/store/hooks";
-import { setUser } from "@/store/authSlice";
 import { Button } from "@/components/ui/button";
-
-type LoginResponse = {
-  data: { user: { id: string; email: string; name: string } };
-};
-
-type MeResponse = { data: { user: Parameters<typeof setUser>[0] } };
 
 export default function LoginPage() {
   const router = useRouter();
@@ -28,14 +21,11 @@ export default function LoginPage() {
     setError("");
     setIsLoading(true);
     try {
-      const sessionId = window.localStorage.getItem("dhanvantari-session-id")?.trim();
-      const headers = sessionId ? { "x-session-id": sessionId } : undefined;
-      await api.post<LoginResponse>("/auth/login", { email, password }, { headers });
-      const me = await api.get<MeResponse>("/auth/me");
-      dispatch(setUser(me.data.user));
+      const result = await dispatch(loginUser({ email, password }));
+      if (loginUser.rejected.match(result)) throw new Error(result.payload as string ?? "Unable to sign in.");
       router.push("/cart");
     } catch (requestError) {
-      setError(requestError instanceof ApiError ? requestError.message : "Unable to sign in. Please try again.");
+      setError(requestError instanceof Error ? requestError.message : "Unable to sign in. Please try again.");
     } finally {
       setIsLoading(false);
     }

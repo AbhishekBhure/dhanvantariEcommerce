@@ -1,63 +1,30 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
-import type { CartItem } from "@dhanvantari/shared-types";
-import { api } from "@/lib/api";
 import { formatPrice, getImageUrl } from "@/lib/utils";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { setCart } from "@/store/cartSlice";
+import { loadCart, removeCartItem, updateCartItem } from "@/store/cartSlice";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 
-type CartData = { items: CartItem[]; subtotal: number; discount: number; shippingCharge: number; total: number };
-type CartResponse = { data: { cart: CartData } };
-
-function sessionHeaders(): HeadersInit {
-  const sessionId = window.localStorage.getItem("dhanvantari-session-id");
-  return sessionId ? { "x-session-id": sessionId } : {};
-}
-
 export default function CartContent() {
   const dispatch = useAppDispatch();
-  const reduxItems = useAppSelector((state) => state.cart.items);
-  const [cart, setCartData] = useState<CartData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const cart = useAppSelector((state) => state.cart);
+  const isLoading = cart.isLoading;
 
-  async function refreshCart() {
-    const sessionId = window.localStorage.getItem("dhanvantari-session-id");
-    if (!sessionId) {
-      setCartData({ items: [], subtotal: 0, discount: 0, shippingCharge: 0, total: 0 });
-      setIsLoading(false);
-      return;
-    }
-    try {
-      const response = await api.get<CartResponse>("/cart", { headers: sessionHeaders() });
-      setCartData(response.data.cart);
-      dispatch(setCart(response.data.cart));
-    } catch {
-      toast({ title: "Could not load your cart", description: "Please refresh and try again.", variant: "destructive" });
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  useEffect(() => { void refreshCart(); }, []);
+  useEffect(() => { void dispatch(loadCart()); }, [dispatch]);
 
   async function updateItem(itemId: string, quantity: number) {
-    try {
-      await api.patch(`/cart/items/${itemId}`, { quantity }, { headers: sessionHeaders() });
-      await refreshCart();
-    } catch { toast({ title: "Cart update failed", description: "Please try again.", variant: "destructive" }); }
+    const result = await dispatch(updateCartItem({ itemId, quantity }));
+    if (updateCartItem.rejected.match(result)) toast({ title: "Cart update failed", description: "Please try again.", variant: "destructive" });
   }
 
   async function removeItem(itemId: string) {
-    try {
-      await api.delete(`/cart/items/${itemId}`, { headers: sessionHeaders() });
-      await refreshCart();
-    } catch { toast({ title: "Could not remove item", variant: "destructive" }); }
+    const result = await dispatch(removeCartItem(itemId));
+    if (removeCartItem.rejected.match(result)) toast({ title: "Could not remove item", variant: "destructive" });
   }
 
   if (isLoading) return <div className="py-24 text-center text-muted-foreground">Loading your cart...</div>;
