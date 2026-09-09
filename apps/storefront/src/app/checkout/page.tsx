@@ -68,8 +68,21 @@ export default function CheckoutPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [isPincodeChecking, setIsPincodeChecking] = useState(false);
   const [isPincodeValid, setIsPincodeValid] = useState(false);
+
+  function setFieldError(field: string, message: string) {
+    setFieldErrors((current) => ({ ...current, [field]: message }));
+  }
+
+  function clearFieldError(field: string) {
+    setFieldErrors((current) => {
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  }
 
   useEffect(() => {
     async function loadCheckout() {
@@ -101,12 +114,23 @@ export default function CheckoutPage() {
 
   function updateAddress(field: keyof AddressForm, value: string) {
     setAddressForm((current) => ({ ...current, [field]: value }));
-    if (field === "pincode") setIsPincodeValid(false);
+    clearFieldError(field);
+    if (field === "pincode") {
+      setIsPincodeValid(false);
+      setAddressForm((current) => ({ ...current, city: "", state: "" }));
+    }
   }
+
+  useEffect(() => {
+    if (!showAddressForm || addressForm.pincode.length !== 6) return;
+    const timer = window.setTimeout(() => void lookupPincode(addressForm.pincode), 350);
+    return () => window.clearTimeout(timer);
+  }, [addressForm.pincode, showAddressForm]);
 
   async function lookupPincode(pincode: string): Promise<boolean> {
     if (!/^\d{6}$/.test(pincode)) {
       setIsPincodeValid(false);
+      if (pincode.length > 0) setFieldError("pincode", "Enter a valid 6-digit pincode.");
       return false;
     }
     setIsPincodeChecking(true);
@@ -125,7 +149,7 @@ export default function CheckoutPage() {
       const office = results[0]?.PostOffice?.[0];
       if (results[0]?.Status !== "Success" || !office) {
         setIsPincodeValid(false);
-        setError("Enter a valid Indian pincode.");
+        setFieldError("pincode", "This pincode was not found in India Post records.");
         return false;
       }
       setAddressForm((current) => ({
@@ -134,11 +158,11 @@ export default function CheckoutPage() {
         state: office.State || "",
       }));
       setIsPincodeValid(true);
-      setError("");
+      clearFieldError("pincode");
       return true;
     } catch {
       setIsPincodeValid(false);
-      setError("Could not verify the pincode. Please try again.");
+      setFieldError("pincode", "Could not verify this pincode. Please try again.");
       return false;
     } finally {
       setIsPincodeChecking(false);
@@ -148,6 +172,7 @@ export default function CheckoutPage() {
   async function createAddress(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    setFieldErrors({});
     setIsSubmitting(true);
     try {
       if (!(await lookupPincode(addressForm.pincode))) return;
@@ -166,6 +191,10 @@ export default function CheckoutPage() {
       setAddressForm(emptyAddress);
       setIsPincodeValid(false);
     } catch (requestError) {
+      if (requestError instanceof ApiError) {
+        const errors = requestError.data.errors as Record<string, string[]> | undefined;
+        if (errors) setFieldErrors(Object.fromEntries(Object.entries(errors).map(([key, messages]) => [key, messages[0] ?? "Invalid value"])));
+      }
       setError(
         requestError instanceof ApiError
           ? requestError.message
@@ -310,8 +339,10 @@ export default function CheckoutPage() {
                   onChange={(event) =>
                     updateAddress("name", event.target.value)
                   }
+                  aria-invalid={Boolean(fieldErrors.name)}
                   className="h-10 w-full rounded-lg border border-input px-3 text-sm"
                 />
+                {fieldErrors.name && <p className="mt-1 text-xs text-destructive">{fieldErrors.name}</p>}
               </div>
               <div>
                 <label
@@ -328,8 +359,10 @@ export default function CheckoutPage() {
                   onChange={(event) =>
                     updateAddress("phone", event.target.value)
                   }
+                  aria-invalid={Boolean(fieldErrors.phone)}
                   className="h-10 w-full rounded-lg border border-input px-3 text-sm"
                 />
+                {fieldErrors.phone && <p className="mt-1 text-xs text-destructive">{fieldErrors.phone}</p>}
               </div>
               <div>
                 <label
@@ -352,6 +385,7 @@ export default function CheckoutPage() {
                     )
                   }
                   onBlur={() => void lookupPincode(addressForm.pincode)}
+                  aria-invalid={Boolean(fieldErrors.pincode)}
                   className="h-10 w-full rounded-lg border border-input px-3 text-sm"
                 />
                 {isPincodeChecking && (
@@ -364,6 +398,7 @@ export default function CheckoutPage() {
                     City and state verified
                   </span>
                 )}
+                {fieldErrors.pincode && <p className="mt-1 text-xs text-destructive">{fieldErrors.pincode}</p>}
               </div>
               <div className="sm:col-span-2">
                 <label
@@ -380,8 +415,10 @@ export default function CheckoutPage() {
                   onChange={(event) =>
                     updateAddress("line1", event.target.value)
                   }
+                  aria-invalid={Boolean(fieldErrors.line1)}
                   className="h-10 w-full rounded-lg border border-input px-3 text-sm"
                 />
+                {fieldErrors.line1 && <p className="mt-1 text-xs text-destructive">{fieldErrors.line1}</p>}
               </div>
               <div className="sm:col-span-2">
                 <label
