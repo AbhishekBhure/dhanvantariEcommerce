@@ -8,6 +8,7 @@ import type { Address } from "@dhanvantari/shared-types";
 import { api, ApiError } from "@/lib/api";
 import { formatPrice } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { PhoneField } from "@/components/ui/phone-field";
 
 type CartSummary = {
   items: unknown[];
@@ -345,24 +346,8 @@ export default function CheckoutPage() {
                 {fieldErrors.name && <p className="mt-1 text-xs text-destructive">{fieldErrors.name}</p>}
               </div>
               <div>
-                <label
-                  htmlFor="address-phone"
-                  className="mb-1 block text-sm font-medium"
-                >
-                  Phone
-                </label>
-                <input
-                  id="address-phone"
-                  required
-                  pattern="[6-9][0-9]{9}"
-                  value={addressForm.phone}
-                  onChange={(event) =>
-                    updateAddress("phone", event.target.value)
-                  }
-                  aria-invalid={Boolean(fieldErrors.phone)}
-                  className="h-10 w-full rounded-lg border border-input px-3 text-sm"
-                />
-                {fieldErrors.phone && <p className="mt-1 text-xs text-destructive">{fieldErrors.phone}</p>}
+                <label htmlFor="address-phone" className="mb-1 block text-sm font-medium">Phone</label>
+                <PhoneField id="address-phone" value={addressForm.phone} onChange={(value) => updateAddress("phone", value)} error={fieldErrors.phone} />
               </div>
               <div>
                 <label

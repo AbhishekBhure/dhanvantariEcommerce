@@ -5,6 +5,7 @@ import { LocateFixed, MapPin, Pencil, Plus, Trash2 } from "lucide-react";
 import type { Address } from "@dhanvantari/shared-types";
 import { api, ApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { PhoneField } from "@/components/ui/phone-field";
 
 type AddressForm = {
   label: "HOME" | "WORK" | "OTHER";
@@ -425,15 +426,7 @@ export default function AddressBook() {
             </label>
             <label className="text-sm font-medium">
               Phone
-              <input
-                required
-                pattern="[6-9][0-9]{9}"
-                value={form.phone}
-                onChange={(event) => update("phone", event.target.value)}
-                aria-invalid={Boolean(fieldErrors.phone)}
-                className="mt-1 h-10 w-full border border-input px-3 text-sm"
-              />
-              {fieldErrors.phone && <span className="mt-1 block text-xs text-destructive">{fieldErrors.phone}</span>}
+              <PhoneField id="profile-address-phone" value={form.phone} onChange={(value) => update("phone", value)} error={fieldErrors.phone} />
             </label>
             <label className="text-sm font-medium">
               Pincode
