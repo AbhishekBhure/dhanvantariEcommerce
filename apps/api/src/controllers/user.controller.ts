@@ -55,7 +55,7 @@ export async function updateAddress(
 ): Promise<void> {
   try {
     const userId = req.user!.userId;
-    const { id } = req.params;
+    const id = Array.isArray(req.params["id"]) ? req.params["id"][0] : req.params["id"] ?? "";
     const input = req.body as AddressInput;
 
     const existing = await prisma.address.findFirst({ where: { id, userId } });
@@ -86,7 +86,7 @@ export async function deleteAddress(
 ): Promise<void> {
   try {
     const userId = req.user!.userId;
-    const { id } = req.params;
+    const id = Array.isArray(req.params["id"]) ? req.params["id"][0] : req.params["id"] ?? "";
     const existing = await prisma.address.findFirst({ where: { id, userId } });
     if (!existing) throw new NotFoundError("Address");
 

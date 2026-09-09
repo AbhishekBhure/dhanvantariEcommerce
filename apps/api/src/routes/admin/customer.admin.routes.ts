@@ -3,15 +3,13 @@ import prisma from "../../lib/prisma.js";
 import { validate } from "../../middleware/validate.js";
 import { paginationSchema } from "@dhanvantari/validation";
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 router.get("/", validate(paginationSchema, "query"), async (req, res, next) => {
   try {
-    const { page, pageSize, search } = req.query as {
-      page: number;
-      pageSize: number;
-      search?: string;
-    };
+    const page = Number(req.query["page"] ?? 1);
+    const pageSize = Number(req.query["pageSize"] ?? 20);
+    const search = typeof req.query["search"] === "string" ? req.query["search"] : undefined;
 
     const where = search
       ? {
@@ -59,8 +57,9 @@ router.get("/", validate(paginationSchema, "query"), async (req, res, next) => {
 
 router.get("/:id", async (req, res, next) => {
   try {
+    const id = Array.isArray(req.params["id"]) ? req.params["id"][0] : req.params["id"] ?? "";
     const customer = await prisma.user.findUnique({
-      where: { id: req.params["id"] },
+      where: { id },
       select: {
         id: true,
         name: true,
@@ -106,9 +105,10 @@ router.get("/:id", async (req, res, next) => {
 // PATCH /api/admin/customers/:id/status — activate/deactivate
 router.patch("/:id/status", async (req, res, next) => {
   try {
+    const id = Array.isArray(req.params["id"]) ? req.params["id"][0] : req.params["id"] ?? "";
     const { isActive } = req.body as { isActive: boolean };
     await prisma.user.update({
-      where: { id: req.params["id"] },
+      where: { id },
       data: { isActive },
     });
     res.json({ success: true, message: `Customer ${isActive ? "activated" : "deactivated"}` });

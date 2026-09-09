@@ -15,7 +15,7 @@ import {
   applyCoupon,
 } from "../controllers/cart.controller.js";
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 // All cart routes use optionalAuth (guest carts via x-session-id header)
 router.use(optionalAuth);

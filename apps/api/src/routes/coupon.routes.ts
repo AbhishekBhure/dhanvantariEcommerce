@@ -2,7 +2,7 @@ import { Router } from "express";
 import prisma from "../lib/prisma.js";
 import { BadRequestError } from "../middleware/errorHandler.js";
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 // GET /api/coupons/validate/:code - Public coupon check
 router.get("/validate/:code", async (req, res, next) => {

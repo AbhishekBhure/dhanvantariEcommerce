@@ -35,8 +35,9 @@ export async function getCategoryBySlug(
   next: NextFunction
 ): Promise<void> {
   try {
+    const slug = Array.isArray(req.params["slug"]) ? req.params["slug"][0] : req.params["slug"] ?? "";
     const category = await prisma.category.findFirst({
-      where: { slug: req.params["slug"], isPublished: true },
+      where: { slug, isPublished: true },
       select: {
         id: true,
         name: true,

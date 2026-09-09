@@ -4,7 +4,7 @@ import { authenticate } from "../middleware/auth.js";
 import { register, login, logout, getMe } from "../controllers/auth.controller.js";
 import { registerSchema, loginSchema } from "@dhanvantari/validation";
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 router.post("/register", validate(registerSchema), register);
 router.post("/login", validate(loginSchema), login);

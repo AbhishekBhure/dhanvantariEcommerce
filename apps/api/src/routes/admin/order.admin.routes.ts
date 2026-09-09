@@ -1,11 +1,12 @@
-import { Router } from "express";
+import { Router, type Request } from "express";
 import prisma from "../../lib/prisma.js";
 import { validate } from "../../middleware/validate.js";
 import { NotFoundError, BadRequestError } from "../../middleware/errorHandler.js";
 import { updateOrderStatusSchema, addShipmentSchema, paginationSchema } from "@dhanvantari/validation";
 import { OrderStatus } from "@dhanvantari/shared-types";
+import { Prisma } from "@prisma/client";
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 // Valid order status transitions
 const VALID_TRANSITIONS: Record<string, string[]> = {
@@ -25,14 +26,12 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
 
 router.get("/", validate(paginationSchema, "query"), async (req, res, next) => {
   try {
-    const { page, pageSize, search } = req.query as {
-      page: number;
-      pageSize: number;
-      search?: string;
-    };
-    const { status } = req.query as { status?: string };
+    const page = Number(req.query["page"] ?? 1);
+    const pageSize = Number(req.query["pageSize"] ?? 20);
+    const search = typeof req.query["search"] === "string" ? req.query["search"] : undefined;
+    const status = typeof req.query["status"] === "string" ? req.query["status"] : undefined;
 
-    const where: Parameters<typeof prisma.order.findMany>[0]["where"] = {};
+    const where: Prisma.OrderWhereInput = {};
     if (search) {
       where.OR = [
         { orderNumber: { contains: search, mode: "insensitive" } },
@@ -80,8 +79,9 @@ router.get("/", validate(paginationSchema, "query"), async (req, res, next) => {
 
 router.get("/:id", async (req, res, next) => {
   try {
+    const id = Array.isArray(req.params["id"]) ? req.params["id"][0] : req.params["id"] ?? "";
     const order = await prisma.order.findUnique({
-      where: { id: req.params["id"] },
+      where: { id },
       include: {
         items: true,
         payment: true,
@@ -121,8 +121,9 @@ router.get("/:id", async (req, res, next) => {
 
 router.patch("/:id/status", validate(updateOrderStatusSchema), async (req, res, next) => {
   try {
-    const { id } = req.params;
+    const id = Array.isArray(req.params["id"]) ? req.params["id"][0] : req.params["id"] ?? "";
     const { status, notes } = req.body as { status: OrderStatus; notes?: string };
+    const authReq = req as Request & { user?: { userId: string } };
 
     const order = await prisma.order.findUnique({ where: { id } });
     if (!order) throw new NotFoundError("Order");
@@ -142,7 +143,7 @@ router.patch("/:id/status", validate(updateOrderStatusSchema), async (req, res, 
           create: {
             status,
             notes,
-            changedBy: req.user?.userId,
+            changedBy: authReq.user?.userId,
           },
         },
       },
@@ -156,7 +157,7 @@ router.patch("/:id/status", validate(updateOrderStatusSchema), async (req, res, 
 
 router.post("/:id/shipment", validate(addShipmentSchema), async (req, res, next) => {
   try {
-    const { id } = req.params;
+    const id = Array.isArray(req.params["id"]) ? req.params["id"][0] : req.params["id"] ?? "";
     const data = req.body as {
       carrier: string;
       trackingNumber: string;
@@ -185,7 +186,7 @@ router.post("/:id/shipment", validate(addShipmentSchema), async (req, res, next)
     } else {
       await prisma.shipment.create({
         data: {
-          orderId: id,
+          orderId: id as string,
           ...data,
           estimatedDelivery: data.estimatedDelivery
             ? new Date(data.estimatedDelivery)

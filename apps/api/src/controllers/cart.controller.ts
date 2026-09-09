@@ -197,7 +197,7 @@ export async function updateCartItem(
     const userId = req.user?.userId;
     const sessionId = req.headers["x-session-id"] as string | undefined;
     const { quantity } = req.body as UpdateCartItemInput;
-    const { itemId } = req.params;
+    const itemId = Array.isArray(req.params["itemId"]) ? req.params["itemId"][0] : req.params["itemId"] ?? "";
 
     const cart = await getOrCreateCart(userId, sessionId);
     const item = await prisma.cartItem.findFirst({
@@ -231,7 +231,7 @@ export async function removeCartItem(
   try {
     const userId = req.user?.userId;
     const sessionId = req.headers["x-session-id"] as string | undefined;
-    const { itemId } = req.params;
+    const itemId = Array.isArray(req.params["itemId"]) ? req.params["itemId"][0] : req.params["itemId"] ?? "";
 
     const cart = await getOrCreateCart(userId, sessionId);
     const item = await prisma.cartItem.findFirst({

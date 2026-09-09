@@ -4,7 +4,7 @@ import { validate } from "../middleware/validate.js";
 import { createOrderSchema } from "@dhanvantari/validation";
 import { createOrder, getMyOrders, getOrderById } from "../controllers/order.controller.js";
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 router.use(authenticate);
 

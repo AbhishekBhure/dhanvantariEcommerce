@@ -5,16 +5,14 @@ import { validate } from "../../middleware/validate.js";
 import { NotFoundError } from "../../middleware/errorHandler.js";
 import { productSchema, paginationSchema } from "@dhanvantari/validation";
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 // GET /api/admin/products
 router.get("/", validate(paginationSchema, "query"), async (req, res, next) => {
   try {
-    const { page, pageSize, search } = req.query as {
-      page: number;
-      pageSize: number;
-      search?: string;
-    };
+    const page = Number(req.query["page"] ?? 1);
+    const pageSize = Number(req.query["pageSize"] ?? 20);
+    const search = typeof req.query["search"] === "string" ? req.query["search"] : undefined;
 
     const where = search
       ? {
@@ -76,8 +74,9 @@ router.get("/", validate(paginationSchema, "query"), async (req, res, next) => {
 // GET /api/admin/products/:id
 router.get("/:id", async (req, res, next) => {
   try {
+    const id = Array.isArray(req.params["id"]) ? req.params["id"][0] : req.params["id"] ?? "";
     const product = await prisma.product.findUnique({
-      where: { id: req.params["id"] },
+      where: { id },
       include: {
         images: { orderBy: { sortOrder: "asc" } },
         variants: true,
@@ -171,7 +170,7 @@ router.post("/", validate(productSchema), async (req, res, next) => {
 // PATCH /api/admin/products/:id
 router.patch("/:id", validate(productSchema.partial()), async (req, res, next) => {
   try {
-    const { id } = req.params;
+    const id = Array.isArray(req.params["id"]) ? req.params["id"][0] : req.params["id"] ?? "";
     const data = req.body as Partial<{
       name: string;
       isPublished: boolean;
@@ -191,9 +190,10 @@ router.patch("/:id", validate(productSchema.partial()), async (req, res, next) =
 
     const product = await prisma.$transaction(async (tx) => {
       if (categoryIds) {
-        await tx.productCategory.deleteMany({ where: { productId: id } });
+        const normalizedId = id as string;
+        await tx.productCategory.deleteMany({ where: { productId: normalizedId } });
         await tx.productCategory.createMany({
-          data: categoryIds.map((categoryId) => ({ productId: id, categoryId })),
+          data: categoryIds.map((categoryId) => ({ productId: normalizedId, categoryId })),
         });
       }
       return tx.product.update({
@@ -211,7 +211,7 @@ router.patch("/:id", validate(productSchema.partial()), async (req, res, next) =
 // DELETE /api/admin/products/:id
 router.delete("/:id", async (req, res, next) => {
   try {
-    const { id } = req.params;
+    const id = Array.isArray(req.params["id"]) ? req.params["id"][0] : req.params["id"] ?? "";
     const existing = await prisma.product.findUnique({ where: { id } });
     if (!existing) throw new NotFoundError("Product");
 
@@ -229,11 +229,13 @@ router.delete("/:id", async (req, res, next) => {
 // POST /api/admin/products/:id/inventory-adjust
 router.post("/:id/inventory-adjust", async (req, res, next) => {
   try {
-    const { id } = req.params;
+    const id = Array.isArray(req.params["id"]) ? req.params["id"][0] : req.params["id"] ?? "";
     const { quantity, reason } = req.body as { quantity: number; reason: string };
 
     const product = await prisma.product.findUnique({ where: { id } });
     if (!product) throw new NotFoundError("Product");
+
+    const adminUserId = (req as unknown as { user?: { userId?: string } }).user?.userId ?? null;
 
     await prisma.$transaction([
       prisma.product.update({
@@ -245,7 +247,7 @@ router.post("/:id/inventory-adjust", async (req, res, next) => {
           productId: id,
           delta: quantity,
           reason: `MANUAL: ${reason}`,
-          adjustedBy: req.user?.userId,
+          adjustedBy: adminUserId,
         },
       }),
     ]);

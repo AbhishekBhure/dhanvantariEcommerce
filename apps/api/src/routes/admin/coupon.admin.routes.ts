@@ -4,7 +4,7 @@ import { validate } from "../../middleware/validate.js";
 import { NotFoundError } from "../../middleware/errorHandler.js";
 import { couponSchema } from "@dhanvantari/validation";
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 router.get("/", async (_req, res, next) => {
   try {
@@ -61,7 +61,7 @@ router.post("/", validate(couponSchema), async (req, res, next) => {
 
 router.patch("/:id", validate(couponSchema.partial()), async (req, res, next) => {
   try {
-    const { id } = req.params;
+    const id = Array.isArray(req.params["id"]) ? req.params["id"][0] : req.params["id"] ?? "";
     const existing = await prisma.coupon.findUnique({ where: { id } });
     if (!existing) throw new NotFoundError("Coupon");
 
@@ -87,7 +87,7 @@ router.patch("/:id", validate(couponSchema.partial()), async (req, res, next) =>
 
 router.delete("/:id", async (req, res, next) => {
   try {
-    const { id } = req.params;
+    const id = Array.isArray(req.params["id"]) ? req.params["id"][0] : req.params["id"] ?? "";
     const existing = await prisma.coupon.findUnique({ where: { id } });
     if (!existing) throw new NotFoundError("Coupon");
     await prisma.coupon.update({ where: { id }, data: { isActive: false } });

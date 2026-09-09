@@ -5,7 +5,7 @@ import { validate } from "../../middleware/validate.js";
 import { NotFoundError } from "../../middleware/errorHandler.js";
 import { categorySchema } from "@dhanvantari/validation";
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 router.get("/", async (_req, res, next) => {
   try {
@@ -42,7 +42,7 @@ router.post("/", validate(categorySchema), async (req, res, next) => {
 
 router.patch("/:id", validate(categorySchema.partial()), async (req, res, next) => {
   try {
-    const { id } = req.params;
+    const id = Array.isArray(req.params["id"]) ? req.params["id"][0] : req.params["id"] ?? "";
     const existing = await prisma.category.findUnique({ where: { id } });
     if (!existing) throw new NotFoundError("Category");
     const category = await prisma.category.update({ where: { id }, data: req.body });
@@ -54,7 +54,7 @@ router.patch("/:id", validate(categorySchema.partial()), async (req, res, next) 
 
 router.delete("/:id", async (req, res, next) => {
   try {
-    const { id } = req.params;
+    const id = Array.isArray(req.params["id"]) ? req.params["id"][0] : req.params["id"] ?? "";
     const existing = await prisma.category.findUnique({ where: { id } });
     if (!existing) throw new NotFoundError("Category");
     await prisma.category.update({ where: { id }, data: { isPublished: false } });

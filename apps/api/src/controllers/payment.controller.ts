@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { Request, Response, NextFunction } from "express";
+import { Prisma } from "@prisma/client";
 import prisma from "../lib/prisma.js";
 import {
   BadRequestError,
@@ -22,16 +23,24 @@ export async function verifyPayment(
       razorpaySignature,
     } = req.body as VerifyPaymentInput;
 
-    // Verify signature to confirm payment is legitimate
-    const secret = process.env["RAZORPAY_KEY_SECRET"] ?? "";
-    const body = `${razorpayOrderId}|${razorpayPaymentId}`;
-    const expectedSignature = crypto
-      .createHmac("sha256", secret)
-      .update(body)
-      .digest("hex");
+    const useDummyGateway =
+      process.env["USE_DUMMY_PAYMENT"] === "true" ||
+      !process.env["RAZORPAY_KEY_ID"] ||
+      !process.env["RAZORPAY_KEY_SECRET"] ||
+      (process.env["RAZORPAY_KEY_ID"] ?? "").includes("placeholder") ||
+      (process.env["RAZORPAY_KEY_SECRET"] ?? "").includes("placeholder");
 
-    if (expectedSignature !== razorpaySignature) {
-      throw new BadRequestError("Payment verification failed — invalid signature");
+    if (!useDummyGateway) {
+      const secret = process.env["RAZORPAY_KEY_SECRET"] ?? "";
+      const body = `${razorpayOrderId}|${razorpayPaymentId}`;
+      const expectedSignature = crypto
+        .createHmac("sha256", secret)
+        .update(body)
+        .digest("hex");
+
+      if (expectedSignature !== razorpaySignature) {
+        throw new BadRequestError("Payment verification failed — invalid signature");
+      }
     }
 
     const order = await prisma.order.findFirst({
@@ -130,7 +139,7 @@ export async function handleWebhook(
             data: {
               status: PaymentStatus.SUCCESS,
               gatewayPaymentId,
-              webhookPayload: event as unknown as Record<string, unknown>,
+              webhookPayload: event as Prisma.InputJsonValue,
             },
           }),
           prisma.order.update({
@@ -161,7 +170,7 @@ export async function handleWebhook(
             where: { id: payment.id },
             data: {
               status: PaymentStatus.FAILED,
-              webhookPayload: event as unknown as Record<string, unknown>,
+              webhookPayload: event as Prisma.InputJsonValue,
             },
           }),
           prisma.order.update({

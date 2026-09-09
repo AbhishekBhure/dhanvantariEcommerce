@@ -8,7 +8,7 @@ import adminCouponRoutes from "./coupon.admin.routes.js";
 import adminBannerRoutes from "./banner.admin.routes.js";
 import adminDashboardRoutes from "./dashboard.admin.routes.js";
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 // All admin routes require authentication + admin role
 router.use(authenticate, requireAdmin);

@@ -22,7 +22,7 @@ import adminRoutes from "./routes/admin/index.routes.js";
 
 // ─── App Setup ────────────────────────────────────────────────
 
-const app = express();
+const app: express.Express = express();
 
 // ─── Trust proxy (for Vercel/reverse proxies) ────────────────
 app.set("trust proxy", 1);

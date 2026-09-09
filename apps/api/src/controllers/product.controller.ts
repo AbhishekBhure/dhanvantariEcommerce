@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { Prisma } from "@prisma/client";
 import prisma from "../lib/prisma.js";
 import { NotFoundError } from "../middleware/errorHandler.js";
 import { ProductFilterInput } from "@dhanvantari/validation";
@@ -24,7 +25,7 @@ export async function getProducts(
       pageSize = 12,
     } = req.query as unknown as ProductFilterInput;
 
-    const where: Parameters<typeof prisma.product.findMany>[0]["where"] = {
+    const where: Prisma.ProductWhereInput = {
       isPublished: true,
     };
 
@@ -48,7 +49,7 @@ export async function getProducts(
     if (isBestseller !== undefined) where.isBestseller = isBestseller;
     if (isNew !== undefined) where.isNew = isNew;
 
-    const orderBy: Parameters<typeof prisma.product.findMany>[0]["orderBy"] = (() => {
+    const orderBy: Prisma.ProductOrderByWithRelationInput = (() => {
       switch (sortBy) {
         case "price_asc": return { price: "asc" as const };
         case "price_desc": return { price: "desc" as const };
@@ -120,7 +121,7 @@ export async function getProductBySlug(
   next: NextFunction
 ): Promise<void> {
   try {
-    const { slug } = req.params;
+    const slug = Array.isArray(req.params["slug"]) ? req.params["slug"][0] : (req.params["slug"] ?? "") as string;
 
     const product = await prisma.product.findFirst({
       where: { slug, isPublished: true },

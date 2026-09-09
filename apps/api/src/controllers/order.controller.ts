@@ -13,6 +13,14 @@ import { OrderStatus, PaymentMethod } from "@dhanvantari/shared-types";
 const SHIPPING_THRESHOLD = 499;
 const SHIPPING_CHARGE = 49;
 
+function isDummyRazorpayEnabled(): boolean {
+  const keyId = process.env["RAZORPAY_KEY_ID"] ?? "";
+  const keySecret = process.env["RAZORPAY_KEY_SECRET"] ?? "";
+  const forceDummy = process.env["USE_DUMMY_PAYMENT"] === "true";
+
+  return forceDummy || !keyId || !keySecret || keyId.includes("placeholder") || keySecret.includes("placeholder");
+}
+
 function generateOrderNumber(): string {
   return `DHV-${Date.now()}-${nanoid(6).toUpperCase()}`;
 }
@@ -233,6 +241,30 @@ export async function createOrder(
     // For Razorpay — create gateway order
     if (paymentMethod === "RAZORPAY") {
       try {
+        if (isDummyRazorpayEnabled()) {
+          const dummyOrderId = `dummy_order_${order.orderNumber}`;
+
+          await prisma.payment.update({
+            where: { orderId: order.id },
+            data: { gatewayOrderId: dummyOrderId },
+          });
+
+          res.status(201).json({
+            success: true,
+            message: "Order created with dummy Razorpay mode",
+            data: {
+              orderId: order.id,
+              orderNumber: order.orderNumber,
+              razorpayOrderId: dummyOrderId,
+              amount: total,
+              currency: "INR",
+              keyId: "rzp_test_dummy",
+              dummyPayment: true,
+            },
+          });
+          return;
+        }
+
         const razorpay = new Razorpay({
           key_id: process.env["RAZORPAY_KEY_ID"] ?? "",
           key_secret: process.env["RAZORPAY_KEY_SECRET"] ?? "",
@@ -340,8 +372,9 @@ export async function getOrderById(
   next: NextFunction
 ): Promise<void> {
   try {
+    const id = Array.isArray(req.params["id"]) ? req.params["id"][0] : req.params["id"] ?? "";
     const order = await prisma.order.findFirst({
-      where: { id: req.params["id"], userId: req.user!.userId },
+      where: { id, userId: req.user!.userId },
       include: {
         items: true,
         payment: { select: { method: true, status: true, gatewayPaymentId: true } },

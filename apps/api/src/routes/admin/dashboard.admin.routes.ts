@@ -1,7 +1,7 @@
 import { Router } from "express";
 import prisma from "../../lib/prisma.js";
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 // GET /api/admin/dashboard
 router.get("/", async (_req, res, next) => {

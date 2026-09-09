@@ -10,7 +10,7 @@ import {
   updateProfile,
 } from "../controllers/user.controller.js";
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 router.use(authenticate);
 
