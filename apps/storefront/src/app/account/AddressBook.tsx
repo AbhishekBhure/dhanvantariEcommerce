@@ -55,6 +55,7 @@ export default function AddressBook() {
   const [isLocating, setIsLocating] = useState(false);
   const [isPincodeChecking, setIsPincodeChecking] = useState(false);
   const [isPincodeValid, setIsPincodeValid] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
@@ -81,6 +82,11 @@ export default function AddressBook() {
 
   function update(field: keyof AddressForm, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
+    setFieldErrors((current) => {
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
     if (field === "pincode") {
       setIsPincodeValid(false);
       setError("");
@@ -102,6 +108,7 @@ export default function AddressBook() {
   ): Promise<boolean> {
     if (!/^\d{6}$/.test(value)) {
       setIsPincodeValid(false);
+      if (value.length > 0) setFieldErrors((current) => ({ ...current, pincode: "Enter a valid 6-digit pincode." }));
       return false;
     }
     setIsPincodeChecking(true);
@@ -120,6 +127,7 @@ export default function AddressBook() {
       const office = results[0]?.PostOffice?.[0];
       if (results[0]?.Status !== "Success" || !office) {
         setIsPincodeValid(false);
+        setFieldErrors((current) => ({ ...current, pincode: "This pincode was not found in India Post records." }));
         setError("This pincode was not found in India Post records.");
         return false;
       }
@@ -131,9 +139,11 @@ export default function AddressBook() {
         }));
       setError("");
       setIsPincodeValid(true);
+      setFieldErrors((current) => { const next = { ...current }; delete next.pincode; return next; });
       return true;
     } catch {
       setIsPincodeValid(false);
+      setFieldErrors((current) => ({ ...current, pincode: "Could not verify this pincode. Please try again." }));
       setError("Could not verify this pincode. Please try again.");
       return false;
     } finally {
@@ -206,6 +216,14 @@ export default function AddressBook() {
     event.preventDefault();
     setError("");
     setMessage("");
+    const nextErrors: Record<string, string> = {};
+    if (form.name.trim().length < 2) nextErrors.name = "Enter your full name.";
+    if (!/^[6-9]\d{9}$/.test(form.phone)) nextErrors.phone = "Enter a valid 10-digit mobile number.";
+    if (form.line1.trim().length < 5) nextErrors.line1 = "Enter your flat, house number, or building.";
+    if (!isPincodeValid) nextErrors.pincode = "Enter a valid pincode first.";
+    if (!form.city || !form.state) nextErrors.pincode = "Verify the pincode to fill city and state.";
+    setFieldErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
     try {
       if (!(await verifyPincode(form.pincode, true))) {
         setError("Enter a valid Indian pincode.");
@@ -236,10 +254,15 @@ export default function AddressBook() {
           : [...current, response.data.address],
       );
       setForm(emptyForm);
+      setFieldErrors({});
       setEditingId(null);
       setIsOpen(false);
       setMessage("Address saved.");
     } catch (requestError) {
+      if (requestError instanceof ApiError) {
+        const errors = requestError.data.errors as Record<string, string[]> | undefined;
+        if (errors) setFieldErrors(Object.fromEntries(Object.entries(errors).map(([key, messages]) => [key, messages[0] ?? "Invalid value"])));
+      }
       setError(
         requestError instanceof ApiError
           ? requestError.message
@@ -395,8 +418,10 @@ export default function AddressBook() {
                 minLength={2}
                 value={form.name}
                 onChange={(event) => update("name", event.target.value)}
+                aria-invalid={Boolean(fieldErrors.name)}
                 className="mt-1 h-10 w-full border border-input px-3 text-sm"
               />
+              {fieldErrors.name && <span className="mt-1 block text-xs text-destructive">{fieldErrors.name}</span>}
             </label>
             <label className="text-sm font-medium">
               Phone
@@ -405,8 +430,10 @@ export default function AddressBook() {
                 pattern="[6-9][0-9]{9}"
                 value={form.phone}
                 onChange={(event) => update("phone", event.target.value)}
+                aria-invalid={Boolean(fieldErrors.phone)}
                 className="mt-1 h-10 w-full border border-input px-3 text-sm"
               />
+              {fieldErrors.phone && <span className="mt-1 block text-xs text-destructive">{fieldErrors.phone}</span>}
             </label>
             <label className="text-sm font-medium">
               Pincode
@@ -417,8 +444,12 @@ export default function AddressBook() {
                 maxLength={6}
                 value={form.pincode}
                 onChange={(event) => update("pincode", event.target.value.replace(/\D/g, "").slice(0, 6))}
+                aria-invalid={Boolean(fieldErrors.pincode)}
                 className="mt-1 h-10 w-full border border-input px-3 text-sm"
               />
+              {isPincodeChecking && <span className="mt-1 block text-xs text-muted-foreground">Checking pincode...</span>}
+              {isPincodeValid && <span className="mt-1 block text-xs text-brand-700">City and state verified</span>}
+              {fieldErrors.pincode && <span className="mt-1 block text-xs text-destructive">{fieldErrors.pincode}</span>}
             </label>
             <label className="sm:col-span-2 text-sm font-medium">
               Flat, house number, building
@@ -427,8 +458,10 @@ export default function AddressBook() {
                 minLength={5}
                 value={form.line1}
                 onChange={(event) => update("line1", event.target.value)}
+                aria-invalid={Boolean(fieldErrors.line1)}
                 className="mt-1 h-10 w-full border border-input px-3 text-sm"
               />
+              {fieldErrors.line1 && <span className="mt-1 block text-xs text-destructive">{fieldErrors.line1}</span>}
             </label>
             <label className="sm:col-span-2 text-sm font-medium">
               Apartment, landmark{" "}
