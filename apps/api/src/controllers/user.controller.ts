@@ -3,7 +3,7 @@ import prisma from "../lib/prisma.js";
 import { BadRequestError, NotFoundError } from "../middleware/errorHandler.js";
 import { AddressInput } from "@dhanvantari/validation";
 
-type PostalLookup = { Status: string; PostOffice?: Array<{ District?: string; State?: string; Block?: string }> };
+type PostalLookup = { Status: string; PostOffice?: Array<{ Name?: string; District?: string; State?: string; Block?: string }> };
 
 async function validateIndianPincode(pincode: string, city: string, state: string): Promise<void> {
   const response = await fetch(`https://api.postalpincode.in/pincode/${pincode}`, { signal: AbortSignal.timeout(5000) });
@@ -14,11 +14,13 @@ async function validateIndianPincode(pincode: string, city: string, state: strin
   if (result?.Status !== "Success" || offices.length === 0) {
     throw new BadRequestError("Enter a valid Indian pincode");
   }
-  const normalizedCity = city.trim().toLowerCase();
-  const normalizedState = state.trim().toLowerCase();
+  const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const normalizedCity = normalize(city);
+  const normalizedState = normalize(state);
   const matches = offices.some((office) => {
-    const officeCity = (office.District ?? office.Block ?? "").trim().toLowerCase();
-    return officeCity === normalizedCity && (office.State ?? "").trim().toLowerCase() === normalizedState;
+    const locationNames = [office.Name, office.District, office.Block].filter(Boolean).map((value) => normalize(value!));
+    const cityMatches = locationNames.some((name) => name === normalizedCity || name.includes(normalizedCity) || normalizedCity.includes(name));
+    return cityMatches && normalize(office.State ?? "") === normalizedState;
   });
   if (!matches) throw new BadRequestError("City and state do not match this pincode");
 }

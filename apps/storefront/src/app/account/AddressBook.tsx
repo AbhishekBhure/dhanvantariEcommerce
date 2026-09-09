@@ -53,6 +53,8 @@ export default function AddressBook() {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isLocating, setIsLocating] = useState(false);
+  const [isPincodeChecking, setIsPincodeChecking] = useState(false);
+  const [isPincodeValid, setIsPincodeValid] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
@@ -79,6 +81,11 @@ export default function AddressBook() {
 
   function update(field: keyof AddressForm, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
+    if (field === "pincode") {
+      setIsPincodeValid(false);
+      setError("");
+      setForm((current) => ({ ...current, city: "", state: "" }));
+    }
   }
   useEffect(() => {
     if (!isOpen || form.pincode.length !== 6) return;
@@ -93,7 +100,11 @@ export default function AddressBook() {
     value: string,
     fillLocation = true,
   ): Promise<boolean> {
-    if (!/^\d{6}$/.test(value)) return false;
+    if (!/^\d{6}$/.test(value)) {
+      setIsPincodeValid(false);
+      return false;
+    }
+    setIsPincodeChecking(true);
     try {
       const response = await fetch(
         `https://api.postalpincode.in/pincode/${value}`,
@@ -108,6 +119,7 @@ export default function AddressBook() {
       }>;
       const office = results[0]?.PostOffice?.[0];
       if (results[0]?.Status !== "Success" || !office) {
+        setIsPincodeValid(false);
         setError("This pincode was not found in India Post records.");
         return false;
       }
@@ -118,10 +130,14 @@ export default function AddressBook() {
           state: office.State || current.state,
         }));
       setError("");
+      setIsPincodeValid(true);
       return true;
     } catch {
+      setIsPincodeValid(false);
       setError("Could not verify this pincode. Please try again.");
       return false;
+    } finally {
+      setIsPincodeChecking(false);
     }
   }
 
@@ -445,8 +461,12 @@ export default function AddressBook() {
                 className="mt-1 h-10 w-full border border-input bg-muted px-3 text-sm"
               />
             </label>
-            <Button type="submit" className="sm:col-span-2">
-              Save address
+            <Button
+              type="submit"
+              disabled={isPincodeChecking || !isPincodeValid}
+              className="sm:col-span-2"
+            >
+              {isPincodeChecking ? "Checking pincode..." : "Save address"}
             </Button>
           </form>
         </div>
