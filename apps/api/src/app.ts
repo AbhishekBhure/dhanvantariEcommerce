@@ -31,9 +31,13 @@ app.set("trust proxy", 1);
 app.use(helmet());
 
 // ─── CORS ─────────────────────────────────────────────────────
+function configuredOrigins(value: string | undefined, fallback: string): string[] {
+  return (value ?? fallback).split(",").map((origin) => origin.trim().replace(/\/$/, "")).filter(Boolean);
+}
+
 const allowedOrigins = [
-  process.env["STOREFRONT_URL"] ?? "http://localhost:3000",
-  process.env["ADMIN_URL"] ?? "http://localhost:3001",
+  ...configuredOrigins(process.env["STOREFRONT_URL"], "http://localhost:3000"),
+  ...configuredOrigins(process.env["ADMIN_URL"], "http://localhost:3001"),
 ];
 
 app.use(
