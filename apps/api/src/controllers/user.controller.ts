@@ -1,7 +1,27 @@
 import { Request, Response, NextFunction } from "express";
 import prisma from "../lib/prisma.js";
-import { NotFoundError } from "../middleware/errorHandler.js";
+import { BadRequestError, NotFoundError } from "../middleware/errorHandler.js";
 import { AddressInput } from "@dhanvantari/validation";
+
+type PostalLookup = { Status: string; PostOffice?: Array<{ District?: string; State?: string; Block?: string }> };
+
+async function validateIndianPincode(pincode: string, city: string, state: string): Promise<void> {
+  const response = await fetch(`https://api.postalpincode.in/pincode/${pincode}`, { signal: AbortSignal.timeout(5000) });
+  if (!response.ok) throw new BadRequestError("Could not verify this pincode right now");
+  const results = await response.json() as PostalLookup[];
+  const result = results[0];
+  const offices = result?.PostOffice ?? [];
+  if (result?.Status !== "Success" || offices.length === 0) {
+    throw new BadRequestError("Enter a valid Indian pincode");
+  }
+  const normalizedCity = city.trim().toLowerCase();
+  const normalizedState = state.trim().toLowerCase();
+  const matches = offices.some((office) => {
+    const officeCity = (office.District ?? office.Block ?? "").trim().toLowerCase();
+    return officeCity === normalizedCity && (office.State ?? "").trim().toLowerCase() === normalizedState;
+  });
+  if (!matches) throw new BadRequestError("City and state do not match this pincode");
+}
 
 // GET /api/users/addresses
 export async function getAddresses(
@@ -30,6 +50,8 @@ export async function createAddress(
     const userId = req.user!.userId;
     const input = req.body as AddressInput;
 
+    await validateIndianPincode(input.pincode, input.city, input.state);
+
     if (input.isDefault) {
       await prisma.address.updateMany({
         where: { userId },
@@ -57,6 +79,8 @@ export async function updateAddress(
     const userId = req.user!.userId;
     const id = Array.isArray(req.params["id"]) ? req.params["id"][0] : req.params["id"] ?? "";
     const input = req.body as AddressInput;
+
+    await validateIndianPincode(input.pincode, input.city, input.state);
 
     const existing = await prisma.address.findFirst({ where: { id, userId } });
     if (!existing) throw new NotFoundError("Address");

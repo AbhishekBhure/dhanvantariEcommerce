@@ -46,6 +46,15 @@ export default function AddressBook() {
   }
 
   function update(field: keyof AddressForm, value: string) { setForm((current) => ({ ...current, [field]: value })); }
+  async function verifyPincode(value: string, fillLocation = true): Promise<boolean> {
+    if (!/^\d{6}$/.test(value)) return false;
+    const response = await fetch(`https://api.postalpincode.in/pincode/${value}`);
+    const results = await response.json() as Array<{ Status: string; PostOffice?: Array<{ District?: string; State?: string; Block?: string }> }>;
+    const office = results[0]?.PostOffice?.[0];
+    if (results[0]?.Status !== "Success" || !office) return false;
+    if (fillLocation) setForm((current) => ({ ...current, city: office.District || office.Block || current.city, state: office.State || current.state }));
+    return true;
+  }
 
   function useCurrentLocation() {
     if (!navigator.geolocation) { setError("Location is not supported by this browser."); return; }
@@ -67,6 +76,7 @@ export default function AddressBook() {
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError(""); setMessage("");
     try {
+      if (!(await verifyPincode(form.pincode, true))) { setError("Enter a valid Indian pincode."); return; }
       const payload = { ...form, line2: form.line2 || null, country: "India", isDefault: addresses.length === 0 || addresses.every((address) => !address.isDefault) };
       const response = editingId
         ? await api.put<{ data: { address: Address } }>(`/users/addresses/${editingId}`, payload)
