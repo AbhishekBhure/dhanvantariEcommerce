@@ -103,6 +103,7 @@ export interface AuthTokenPayload {
 export interface Address {
   id: string;
   userId: string;
+  label: AddressLabel;
   name: string;
   phone: string;
   line1: string;
@@ -116,7 +117,14 @@ export interface Address {
   updatedAt: string;
 }
 
+export enum AddressLabel {
+  HOME = "HOME",
+  WORK = "WORK",
+  OTHER = "OTHER",
+}
+
 export interface AddressInput {
+  label?: AddressLabel;
   name: string;
   phone: string;
   line1: string;

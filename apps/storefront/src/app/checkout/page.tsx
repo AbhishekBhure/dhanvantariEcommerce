@@ -15,6 +15,7 @@ type AddressesResponse = { data: { addresses: Address[] } };
 type OrderResponse = { data: { orderId: string; orderNumber: string; total: number; razorpayOrderId?: string; dummyPayment?: boolean } };
 
 type AddressForm = {
+  label: "HOME" | "WORK" | "OTHER";
   name: string;
   phone: string;
   line1: string;
@@ -24,7 +25,7 @@ type AddressForm = {
   pincode: string;
 };
 
-const emptyAddress: AddressForm = { name: "", phone: "", line1: "", line2: "", city: "", state: "", pincode: "" };
+const emptyAddress: AddressForm = { label: "HOME", name: "", phone: "", line1: "", line2: "", city: "", state: "", pincode: "" };
 
 function sessionHeaders(): HeadersInit {
   const sessionId = window.localStorage.getItem("dhanvantari-session-id")?.trim();
@@ -76,7 +77,7 @@ export default function CheckoutPage() {
     setError("");
     setIsSubmitting(true);
     try {
-      const response = await api.post<{ data: { address: Address } }>("/users/addresses", { ...addressForm, country: "India", isDefault: addresses.length === 0 });
+      const response = await api.post<{ data: { address: Address } }>("/users/addresses", { ...addressForm, line2: addressForm.line2 || null, country: "India", isDefault: addresses.length === 0 });
       setAddresses((current) => [...current, response.data.address]);
       setSelectedAddressId(response.data.address.id);
       setShowAddressForm(false);

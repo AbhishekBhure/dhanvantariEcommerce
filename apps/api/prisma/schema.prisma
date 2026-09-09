@@ -65,6 +65,12 @@ enum ShipmentStatus {
   RETURNED
 }
 
+enum AddressLabel {
+  HOME
+  WORK
+  OTHER
+}
+
 // ─── User ─────────────────────────────────────────────────────
 
 model User {
@@ -99,6 +105,7 @@ model User {
 model Address {
   id        String   @id @default(uuid())
   userId    String
+  label     AddressLabel @default(HOME)
   name      String
   phone     String
   line1     String

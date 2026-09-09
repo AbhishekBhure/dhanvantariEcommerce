@@ -63,14 +63,15 @@ export const updateProfileSchema = z.object({
 // ─── Address Schemas ──────────────────────────────────────────
 
 export const addressSchema = z.object({
+  label: z.enum(["HOME", "WORK", "OTHER"]).default("HOME"),
   name: z.string().min(2, "Name must be at least 2 characters").max(100),
   phone: z
     .string()
     .regex(/^[6-9]\d{9}$/, "Enter a valid 10-digit Indian mobile number"),
-  line1: z.string().min(5, "Address line 1 is required").max(255),
-  line2: z.string().max(255).optional().nullable(),
-  city: z.string().min(2, "City is required").max(100),
-  state: z.string().min(2, "State is required").max(100),
+  line1: z.string().trim().min(5, "Address line 1 is required").max(255),
+  line2: z.string().trim().max(255).optional().nullable(),
+  city: z.string().trim().min(2, "City is required").max(100),
+  state: z.string().trim().min(2, "State is required").max(100),
   pincode: z.string().regex(/^\d{6}$/, "Enter a valid 6-digit pincode"),
   country: z.string().default("India"),
   isDefault: z.boolean().default(false),
