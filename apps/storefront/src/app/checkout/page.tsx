@@ -24,10 +24,40 @@ type OrderResponse = {
     orderId: string;
     orderNumber: string;
     total: number;
+    amount?: number;
+    currency?: string;
+    keyId?: string;
     razorpayOrderId?: string;
     dummyPayment?: boolean;
   };
 };
+
+type RazorpaySuccessResponse = {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+};
+
+type RazorpayInstance = { open: () => void };
+type RazorpayOptions = {
+  key: string;
+  amount: number;
+  currency: string;
+  name: string;
+  description: string;
+  order_id: string;
+  prefill?: { name?: string; email?: string; contact?: string };
+  notes?: { orderNumber?: string };
+  theme?: { color: string };
+  handler: (response: RazorpaySuccessResponse) => void;
+  modal?: { ondismiss?: () => void };
+};
+
+declare global {
+  interface Window {
+    Razorpay?: new (options: RazorpayOptions) => RazorpayInstance;
+  }
+}
 
 type AddressForm = {
   label: "HOME" | "WORK" | "OTHER";
@@ -56,6 +86,25 @@ function sessionHeaders(): HeadersInit {
     .getItem("dhanvantari-session-id")
     ?.trim();
   return sessionId ? { "x-session-id": sessionId } : {};
+}
+
+function loadRazorpayCheckout(): Promise<void> {
+  if (typeof window === "undefined") return Promise.reject(new Error("Payment is only available in the browser."));
+  if (window.Razorpay) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const existingScript = document.querySelector<HTMLScriptElement>('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+    if (existingScript) {
+      existingScript.addEventListener("load", () => resolve(), { once: true });
+      existingScript.addEventListener("error", () => reject(new Error("Could not load Razorpay Checkout.")), { once: true });
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Could not load Razorpay Checkout."));
+    document.body.appendChild(script);
+  });
 }
 
 export default function CheckoutPage() {
@@ -266,15 +315,42 @@ export default function CheckoutPage() {
       });
 
       if (paymentMethod === "RAZORPAY" && response.data.razorpayOrderId) {
-        const mockPaymentId = `pay_dummy_${Date.now()}`;
-        const mockSignature = `dummy_${response.data.razorpayOrderId}_${mockPaymentId}`;
-
-        await api.post("/payment/verify", {
-          orderId: response.data.orderId,
-          razorpayOrderId: response.data.razorpayOrderId,
-          razorpayPaymentId: mockPaymentId,
-          razorpaySignature: mockSignature,
-        });
+        if (response.data.dummyPayment) {
+          const mockPaymentId = `pay_dummy_${Date.now()}`;
+          const mockSignature = `dummy_${response.data.razorpayOrderId}_${mockPaymentId}`;
+          await api.post("/payment/verify", {
+            orderId: response.data.orderId,
+            razorpayOrderId: response.data.razorpayOrderId,
+            razorpayPaymentId: mockPaymentId,
+            razorpaySignature: mockSignature,
+          });
+        } else {
+          await loadRazorpayCheckout();
+          const Razorpay = window.Razorpay;
+          if (!Razorpay || !response.data.keyId) throw new Error("Razorpay Checkout is not configured.");
+          await new Promise<void>((resolve, reject) => {
+            const checkout = new Razorpay({
+              key: response.data.keyId!,
+              amount: response.data.amount ?? Math.round(response.data.total * 100),
+              currency: response.data.currency ?? "INR",
+              name: "Dhanvantari Ayurvedic Agencies",
+              description: `Order ${response.data.orderNumber}`,
+              order_id: response.data.razorpayOrderId!,
+              notes: { orderNumber: response.data.orderNumber },
+              theme: { color: "#21865f" },
+              handler: (paymentResponse) => {
+                void api.post("/payment/verify", {
+                  orderId: response.data.orderId,
+                  razorpayOrderId: paymentResponse.razorpay_order_id,
+                  razorpayPaymentId: paymentResponse.razorpay_payment_id,
+                  razorpaySignature: paymentResponse.razorpay_signature,
+                }).then(() => resolve()).catch(reject);
+              },
+              modal: { ondismiss: () => reject(new Error("Payment was cancelled.")) },
+            });
+            checkout.open();
+          });
+        }
       }
 
       router.push(`/order-confirmation/${response.data.orderNumber}`);
@@ -544,8 +620,7 @@ export default function CheckoutPage() {
                   R
                 </span>
                 <span>
-                  <strong className="block">Dummy Razorpay</strong>Test payment
-                  mode for local development.
+                  <strong className="block">Razorpay</strong>Secure online payment.
                 </span>
               </button>
             </div>
@@ -590,7 +665,7 @@ export default function CheckoutPage() {
             className="mt-6 w-full bg-brand-600 text-white hover:bg-brand-700"
           >
             {paymentMethod === "RAZORPAY"
-              ? "Pay with Dummy Razorpay"
+              ? "Pay with Razorpay"
               : "Place COD order"}
           </Button>
         </aside>
