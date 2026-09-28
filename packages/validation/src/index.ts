@@ -237,10 +237,56 @@ export const bannerSchema = z.object({
   subtitle: z.string().max(500).optional().nullable(),
   imageUrl: z.string().url("Invalid image URL"),
   mobileImageUrl: z.string().url().optional().nullable(),
-  linkUrl: z.string().url().optional().nullable(),
+  linkUrl: z.string().optional().nullable(),
   linkText: z.string().max(100).optional().nullable(),
   isActive: z.boolean().default(true),
   sortOrder: z.number().int().min(0).default(0),
+});
+
+// ─── CMS: Content Page Schema ─────────────────────────────────
+
+export const contentPageSchema = z.object({
+  title: z.string().min(1, "Title is required").max(255),
+  slug: z
+    .string()
+    .min(1)
+    .max(255)
+    .regex(/^[a-z0-9-]+$/, "Slug must be lowercase alphanumeric with hyphens")
+    .optional(),
+  excerpt: z.string().max(1000).optional().nullable(),
+  content: z.string().min(1, "Content is required"),
+  featuredImage: z.string().url().optional().nullable().or(z.literal("")),
+  isPublished: z.boolean().default(false),
+  metaTitle: z.string().max(255).optional().nullable(),
+  metaDescription: z.string().max(500).optional().nullable(),
+});
+
+// ─── CMS: Blog Post Schema ────────────────────────────────────
+
+export const blogPostSchema = z.object({
+  title: z.string().min(1, "Title is required").max(255),
+  slug: z
+    .string()
+    .min(1)
+    .max(255)
+    .regex(/^[a-z0-9-]+$/, "Slug must be lowercase alphanumeric with hyphens")
+    .optional(),
+  excerpt: z.string().max(1000).optional().nullable(),
+  content: z.string().min(1, "Content is required"),
+  coverImage: z.string().url().optional().nullable().or(z.literal("")),
+  category: z.string().max(100).optional().nullable(),
+  tags: z.string().max(200).optional().nullable(),
+  authorName: z.string().max(100).default("Dhanvantari Vaidya"),
+  isPublished: z.boolean().default(false),
+  metaTitle: z.string().max(255).optional().nullable(),
+  metaDescription: z.string().max(500).optional().nullable(),
+});
+
+// ─── CMS: Site Settings Schema ────────────────────────────────
+
+export const siteSettingSchema = z.object({
+  key: z.string().min(1).max(100),
+  value: z.any(),
 });
 
 // ─── Query / Filter Schemas ───────────────────────────────────
@@ -289,5 +335,8 @@ export type InventoryAdjustmentInput = z.infer<typeof inventoryAdjustmentSchema>
 export type UpdateOrderStatusInput = z.infer<typeof updateOrderStatusSchema>;
 export type AddShipmentInput = z.infer<typeof addShipmentSchema>;
 export type BannerInput = z.infer<typeof bannerSchema>;
+export type ContentPageInput = z.infer<typeof contentPageSchema>;
+export type BlogPostInput = z.infer<typeof blogPostSchema>;
+export type SiteSettingInput = z.infer<typeof siteSettingSchema>;
 export type ProductFilterInput = z.infer<typeof productFilterSchema>;
 export type PaginationInput = z.infer<typeof paginationSchema>;

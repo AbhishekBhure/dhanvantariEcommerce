@@ -1,6 +1,8 @@
 import React from "react";
 import Link from "next/link";
-import { Leaf, Instagram, Facebook, Youtube, Mail, Phone, MapPin } from "lucide-react";
+import { Leaf, Instagram, Facebook, Youtube, Mail, Phone, MapPin, MessageCircle } from "lucide-react";
+
+const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:4000/api";
 
 const footerLinks = {
   shop: [
@@ -19,13 +21,62 @@ const footerLinks = {
   ],
   company: [
     { href: "/about", label: "About Us" },
+    { href: "/blog", label: "Wellness Journal" },
+    { href: "/pages/ayurvedic-heritage", label: "Ayurvedic Heritage" },
     { href: "/privacy-policy", label: "Privacy Policy" },
     { href: "/terms-conditions", label: "Terms & Conditions" },
   ],
 };
 
-export default function Footer() {
+interface SiteInfo {
+  brandName?: string;
+  tagline?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  whatsappNumber?: string;
+  instagramUrl?: string;
+  facebookUrl?: string;
+  youtubeUrl?: string;
+}
+
+async function getSiteInfo(): Promise<SiteInfo> {
+  try {
+    const res = await fetch(`${API_URL}/settings/info`, {
+      next: { revalidate: 300 },
+    });
+    if (!res.ok) return {};
+    const data = (await res.json()) as { data: { value: SiteInfo } };
+    return data.data?.value ?? {};
+  } catch {
+    return {};
+  }
+}
+
+export default async function Footer() {
   const currentYear = new Date().getFullYear();
+  const info = await getSiteInfo();
+
+  const brandName = info.brandName ?? "Dhanvantari Ayurvedic Agencies";
+  const tagline = info.tagline ?? "Pure Ayurveda, Modern Living";
+  const email = info.email ?? "care@dhanvantari.in";
+  const phone = info.phone ?? "+91 98765 43210";
+  const address = info.address ?? "India";
+  const whatsapp = info.whatsappNumber ?? "919876543210";
+  const instagramUrl = info.instagramUrl ?? "#";
+  const facebookUrl = info.facebookUrl ?? "#";
+  const youtubeUrl = info.youtubeUrl ?? "#";
+
+  const socialLinks = [
+    { href: instagramUrl, icon: Instagram, label: "Follow us on Instagram" },
+    { href: facebookUrl, icon: Facebook, label: "Follow us on Facebook" },
+    { href: youtubeUrl, icon: Youtube, label: "Subscribe on YouTube" },
+    {
+      href: `https://wa.me/${whatsapp}`,
+      icon: MessageCircle,
+      label: "Chat on WhatsApp",
+    },
+  ];
 
   return (
     <footer className="bg-brand-950 text-white" role="contentinfo">
@@ -34,7 +85,7 @@ export default function Footer() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
           {/* Brand column */}
           <div className="sm:col-span-2 lg:col-span-1">
-            <Link href="/" className="flex items-center gap-2 mb-4 group" aria-label="Dhanvantari Ayurvedic Agencies">
+            <Link href="/" className="flex items-center gap-2 mb-4 group" aria-label={brandName}>
               <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-brand-600 group-hover:bg-brand-500 transition-colors">
                 <Leaf className="w-5 h-5 text-white" aria-hidden="true" />
               </div>
@@ -44,17 +95,12 @@ export default function Footer() {
               </div>
             </Link>
             <p className="text-brand-300 text-sm leading-relaxed mb-6">
-              {/* DEMO — Replace with actual brand description */}
-              Authentic Ayurvedic products crafted with time-tested formulations for modern wellness.
+              {tagline}
             </p>
 
-            {/* Social links — update hrefs with actual social URLs */}
+            {/* Social links */}
             <div className="flex gap-3">
-              {[
-                { href: "#", icon: Instagram, label: "Follow us on Instagram" },
-                { href: "#", icon: Facebook, label: "Follow us on Facebook" },
-                { href: "#", icon: Youtube, label: "Subscribe on YouTube" },
-              ].map(({ href, icon: Icon, label }) => (
+              {socialLinks.map(({ href, icon: Icon, label }) => (
                 <a
                   key={label}
                   href={href}
@@ -113,27 +159,29 @@ export default function Footer() {
               Contact
             </h3>
             <address className="not-italic space-y-3">
-              {/* DEMO — Replace with actual contact details */}
               <div className="flex items-start gap-2 text-sm text-brand-300">
                 <Mail className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
-                <a href="mailto:info@dhanvantari.in" className="hover:text-white transition-colors">
-                  info@dhanvantari.in
+                <a href={`mailto:${email}`} className="hover:text-white transition-colors">
+                  {email}
                 </a>
               </div>
               <div className="flex items-start gap-2 text-sm text-brand-300">
                 <Phone className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
-                <a href="tel:+91XXXXXXXXXX" className="hover:text-white transition-colors">
-                  +91-XXXX-XXXXXX
+                <a href={`tel:${phone.replace(/\s/g, "")}`} className="hover:text-white transition-colors">
+                  {phone}
                 </a>
               </div>
               <div className="flex items-start gap-2 text-sm text-brand-300">
                 <MapPin className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
-                <span>[DEMO — Replace with actual address]</span>
+                <span>{address}</span>
               </div>
             </address>
 
             {/* Company info */}
-            <div className="mt-4 space-y-1">
+            <div className="mt-6 space-y-1">
+              <h4 className="font-semibold text-xs uppercase tracking-wider text-brand-400 mb-2">
+                Company
+              </h4>
               {footerLinks.company.map((link) => (
                 <div key={link.href}>
                   <Link
@@ -154,7 +202,7 @@ export default function Footer() {
         <div className="section-container py-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-brand-400">
             <p>
-              &copy; {currentYear} Dhanvantari Ayurvedic Agencies. All rights reserved.
+              &copy; {currentYear} {brandName}. All rights reserved.
             </p>
             <p>
               Made with 🌿 in India

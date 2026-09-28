@@ -10,10 +10,10 @@ import { Button } from "@/components/ui/button";
 
 const NAV_LINKS = [
   { href: "/shop", label: "Shop All" },
-  { href: "/cart", label: "Cart" },
   { href: "/categories/hair-care", label: "Hair Care" },
   { href: "/categories/skin-care", label: "Skin Care" },
   { href: "/categories/health-wellness", label: "Wellness" },
+  { href: "/blog", label: "Journal" },
   { href: "/about", label: "About" },
 ];
 
@@ -24,6 +24,17 @@ export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [announcement, setAnnouncement] = useState<{
+    isEnabled: boolean;
+    text: string;
+    linkUrl?: string;
+    badgeText?: string;
+  }>({
+    isEnabled: true,
+    text: "🌿 100% Authentic Ayurvedic Formulations — Free Delivery on Orders Over ₹499",
+    linkUrl: "/shop",
+    badgeText: "PURE AYURVEDA",
+  });
 
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -33,6 +44,18 @@ export default function Header() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  useEffect(() => {
+    const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:4000/api";
+    fetch(`${API_URL}/settings/announcement`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.data?.value) {
+          setAnnouncement(data.data.value);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   // Close mobile menu on route change
   useEffect(() => {
     setIsMobileMenuOpen(false);
@@ -40,11 +63,23 @@ export default function Header() {
 
   return (
     <>
-      {/* Announcement bar */}
-      <div className="bg-brand-700 text-white text-xs text-center py-2 px-4">
-        🌿 Free shipping on orders above ₹499 &nbsp;|&nbsp; Use code{" "}
-        <span className="font-bold">WELCOME10</span> for 10% off your first order
-      </div>
+      {/* Announcement bar controlled by CMS */}
+      {announcement.isEnabled && (
+        <div className="bg-brand-950 text-white text-xs text-center py-2 px-4 border-b border-brand-800 flex items-center justify-center gap-2">
+          {announcement.badgeText && (
+            <span className="bg-gold-500/20 text-gold-300 border border-gold-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full hidden sm:inline">
+              {announcement.badgeText}
+            </span>
+          )}
+          {announcement.linkUrl ? (
+            <Link href={announcement.linkUrl} className="hover:underline flex items-center gap-1">
+              <span>{announcement.text}</span>
+            </Link>
+          ) : (
+            <span>{announcement.text}</span>
+          )}
+        </div>
+      )}
 
       <header
         className={cn(

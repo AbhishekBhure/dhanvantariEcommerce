@@ -2,6 +2,8 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
+import { Plus, ExternalLink, Package } from "lucide-react";
+import AdminLayout from "@/components/AdminLayout";
 import { createProduct as createProductThunk, loadCategories, loadProducts, type Category, type Product } from "@/store/adminSlice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
@@ -28,5 +30,91 @@ export default function ProductsPage() {
     } finally { setIsSaving(false); }
   }
 
-  return <main className="admin-container"><Link href="/" className="text-sm text-brand-600">Back to dashboard</Link><h1 className="mt-5 text-3xl font-bold">Products</h1><section className="mt-8 border bg-white p-6"><h2 className="text-xl font-bold">Add product</h2><form onSubmit={createProduct} className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><label className="lg:col-span-2"><span className="mb-1 block text-sm font-medium">Product name</span><input required minLength={2} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} className="h-10 w-full border px-3 text-sm" /></label><label><span className="mb-1 block text-sm font-medium">MRP</span><input required type="number" min="1" value={form.mrp} onChange={(event) => setForm({ ...form, mrp: event.target.value })} className="h-10 w-full border px-3 text-sm" /></label><label><span className="mb-1 block text-sm font-medium">Selling price</span><input required type="number" min="1" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} className="h-10 w-full border px-3 text-sm" /></label><label><span className="mb-1 block text-sm font-medium">Stock</span><input required type="number" min="0" value={form.stock} onChange={(event) => setForm({ ...form, stock: event.target.value })} className="h-10 w-full border px-3 text-sm" /></label><label><span className="mb-1 block text-sm font-medium">Category</span><select required value={form.categoryId} onChange={(event) => setForm({ ...form, categoryId: event.target.value })} className="h-10 w-full border px-3 text-sm"><option value="">Select category</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name.replace("[DEMO] ", "")}</option>)}</select></label><label className="flex items-center gap-2 pt-6 text-sm"><input type="checkbox" checked={form.isPublished} onChange={(event) => setForm({ ...form, isPublished: event.target.checked })} /> Publish now</label><label className="sm:col-span-2 lg:col-span-4"><span className="mb-1 block text-sm font-medium">Short description <span className="font-normal text-slate-500">(optional)</span></span><input value={form.shortDescription} onChange={(event) => setForm({ ...form, shortDescription: event.target.value })} className="h-10 w-full border px-3 text-sm" /></label><button disabled={isSaving || !form.categoryId} className="h-10 bg-brand-600 px-5 text-sm font-semibold text-white disabled:opacity-60">{isSaving ? "Saving..." : "Create product"}</button></form>{message && <p className="mt-4 text-sm text-brand-600">{message}</p>}{error && <p className="mt-4 text-sm text-red-700">{error}</p>}</section><section className="mt-8 overflow-x-auto border bg-white"><table className="w-full min-w-[640px] text-left text-sm"><thead className="border-b text-xs uppercase tracking-wider text-slate-500"><tr><th className="px-4 py-3">Name</th><th className="px-4 py-3">Category</th><th className="px-4 py-3">Price</th><th className="px-4 py-3">Stock</th><th className="px-4 py-3">Status</th></tr></thead><tbody className="divide-y">{products.map((product) => <tr key={product.id}><td className="px-4 py-4 font-medium">{product.name.replace("[DEMO] ", "")}</td><td className="px-4 py-4">{product.categories.join(", ")}</td><td className="px-4 py-4">₹{product.price}</td><td className="px-4 py-4">{product.stock}</td><td className="px-4 py-4 text-brand-600">{product.isPublished ? "Published" : "Draft"}</td></tr>)}</tbody></table></section></main>;
+  return (
+    <AdminLayout title="Product Catalog" subtitle="Inventory & Merchandising">
+      {/* Add Product Form Card */}
+      <section className="border bg-white rounded-2xl p-6 shadow-xs mb-8">
+        <h2 className="text-base font-bold text-slate-900 mb-4">Add New Ayurvedic Product</h2>
+        <form onSubmit={createProduct} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <label className="lg:col-span-2">
+            <span className="mb-1 block text-xs font-semibold text-slate-600">Product Name</span>
+            <input required minLength={2} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} className="h-10 w-full border rounded-xl px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="e.g. Pure Bhringraj Scalp Oil" />
+          </label>
+          <label>
+            <span className="mb-1 block text-xs font-semibold text-slate-600">MRP (₹)</span>
+            <input required type="number" min="1" value={form.mrp} onChange={(event) => setForm({ ...form, mrp: event.target.value })} className="h-10 w-full border rounded-xl px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="599" />
+          </label>
+          <label>
+            <span className="mb-1 block text-xs font-semibold text-slate-600">Selling Price (₹)</span>
+            <input required type="number" min="1" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} className="h-10 w-full border rounded-xl px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="499" />
+          </label>
+          <label>
+            <span className="mb-1 block text-xs font-semibold text-slate-600">Initial Stock</span>
+            <input required type="number" min="0" value={form.stock} onChange={(event) => setForm({ ...form, stock: event.target.value })} className="h-10 w-full border rounded-xl px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="50" />
+          </label>
+          <label>
+            <span className="mb-1 block text-xs font-semibold text-slate-600">Category</span>
+            <select required value={form.categoryId} onChange={(event) => setForm({ ...form, categoryId: event.target.value })} className="h-10 w-full border rounded-xl px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+              <option value="">Select category</option>
+              {categories.map((category) => <option key={category.id} value={category.id}>{category.name.replace("[DEMO] ", "")}</option>)}
+            </select>
+          </label>
+          <label className="flex items-center gap-2 pt-6 text-xs font-semibold text-slate-700">
+            <input type="checkbox" checked={form.isPublished} onChange={(event) => setForm({ ...form, isPublished: event.target.checked })} className="rounded text-emerald-600 focus:ring-emerald-500" /> Publish on storefront
+          </label>
+          <label className="sm:col-span-2 lg:col-span-4">
+            <span className="mb-1 block text-xs font-semibold text-slate-600">Short Description <span className="font-normal text-slate-400">(optional)</span></span>
+            <input value={form.shortDescription} onChange={(event) => setForm({ ...form, shortDescription: event.target.value })} className="h-10 w-full border rounded-xl px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Brief therapeutic benefit..." />
+          </label>
+          <div className="sm:col-span-2 lg:col-span-4 flex justify-end pt-2">
+            <button disabled={isSaving || !form.categoryId} className="h-10 bg-emerald-700 hover:bg-emerald-800 px-6 text-xs font-semibold text-white rounded-xl shadow-xs disabled:opacity-60 transition-colors">
+              {isSaving ? "Saving..." : "Create Product"}
+            </button>
+          </div>
+        </form>
+        {message && <p className="mt-4 text-xs font-semibold text-emerald-700">{message}</p>}
+        {error && <p className="mt-4 text-xs font-semibold text-red-600">{error}</p>}
+      </section>
+
+      {/* Products Table Card */}
+      <section className="overflow-x-auto border bg-white rounded-2xl shadow-xs">
+        <table className="w-full min-w-[640px] text-left text-sm">
+          <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wider text-slate-500 border-b">
+            <tr>
+              <th className="px-6 py-3.5">Product Name</th>
+              <th className="px-6 py-3.5">Category</th>
+              <th className="px-6 py-3.5">Price</th>
+              <th className="px-6 py-3.5">Stock</th>
+              <th className="px-6 py-3.5">Status</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {products.map((product) => (
+              <tr key={product.id} className="hover:bg-slate-50/80 transition-colors">
+                <td className="px-6 py-4 font-semibold text-slate-900">
+                  {product.name.replace("[DEMO] ", "")}
+                </td>
+                <td className="px-6 py-4 text-xs text-slate-600">
+                  {product.categories.join(", ") || "General"}
+                </td>
+                <td className="px-6 py-4 font-mono font-medium text-slate-800">
+                  ₹{product.price}
+                </td>
+                <td className="px-6 py-4">
+                  <span className={`text-xs px-2 py-0.5 rounded font-mono ${product.stock <= 5 ? "bg-amber-50 text-amber-700 border border-amber-200" : "text-slate-700"}`}>
+                    {product.stock} in stock
+                  </span>
+                </td>
+                <td className="px-6 py-4">
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${product.isPublished ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-slate-100 text-slate-600 border"}`}>
+                    {product.isPublished ? "Published" : "Draft"}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+    </AdminLayout>
+  );
 }

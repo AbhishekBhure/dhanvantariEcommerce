@@ -15,6 +15,10 @@ export type Product = { id: string; name: string; sku: string | null; price: num
 export type Category = { id: string; name: string; slug: string; description: string | null; isPublished: boolean; sortOrder: number; _count?: { products: number } };
 export type Order = { id: string; orderNumber: string; status: string; total: number; createdAt: string; user: { name: string } | null };
 export type Customer = { id: string; name: string; email: string; phone: string | null; isActive: boolean; createdAt: string; _count: { orders: number } };
+export type ContentPage = { id: string; slug: string; title: string; excerpt: string | null; content: string; featuredImage: string | null; isPublished: boolean; metaTitle: string | null; metaDescription: string | null; updatedAt: string };
+export type BlogPost = { id: string; slug: string; title: string; excerpt: string | null; content: string; coverImage: string | null; category: string | null; tags: string | null; authorName: string; isPublished: boolean; publishedAt: string | null; metaTitle: string | null; metaDescription: string | null; createdAt: string; updatedAt: string };
+export type Banner = { id: string; title: string; subtitle: string | null; imageUrl: string; mobileImageUrl: string | null; linkUrl: string | null; linkText: string | null; isActive: boolean; sortOrder: number };
+export type SiteSettings = Record<string, any>;
 
 type ListState<T> = { items: T[]; isLoading: boolean; error: string | null };
 export type AdminState = {
@@ -25,6 +29,10 @@ export type AdminState = {
   categories: ListState<Category>;
   orders: ListState<Order>;
   customers: ListState<Customer>;
+  pages: ListState<ContentPage>;
+  posts: ListState<BlogPost>;
+  banners: ListState<Banner>;
+  settings: { data: SiteSettings; isLoading: boolean; error: string | null };
   mutation: { isLoading: boolean; error: string | null };
 };
 
@@ -37,6 +45,10 @@ const initialState: AdminState = {
   categories: initialList<Category>(),
   orders: initialList<Order>(),
   customers: initialList<Customer>(),
+  pages: initialList<ContentPage>(),
+  posts: initialList<BlogPost>(),
+  banners: initialList<Banner>(),
+  settings: { data: {}, isLoading: false, error: null },
   mutation: { isLoading: false, error: null },
 };
 
@@ -88,6 +100,70 @@ export const toggleCustomer = createAsyncThunk("admin/toggleCustomer", async (cu
   catch (error) { return rejectWithValue(messageFrom(error, "Could not update customer.")); }
 });
 
+// ─── CMS Pages Thunks ─────────────────────────────────────────
+export const loadPages = createAsyncThunk("admin/loadPages", async (_, { rejectWithValue }) => {
+  try { return (await api<{ data: { pages: ContentPage[] } }>("/admin/cms/pages")).data.pages; }
+  catch (error) { return rejectWithValue(messageFrom(error, "Could not load pages.")); }
+});
+export const createPage = createAsyncThunk("admin/createPage", async (payload: Partial<ContentPage>, { dispatch, rejectWithValue }) => {
+  try { await api("/admin/cms/pages", { method: "POST", body: JSON.stringify(payload) }); await dispatch(loadPages()).unwrap(); }
+  catch (error) { return rejectWithValue(messageFrom(error, "Could not create page.")); }
+});
+export const updatePage = createAsyncThunk("admin/updatePage", async ({ id, data }: { id: string; data: Partial<ContentPage> }, { dispatch, rejectWithValue }) => {
+  try { await api(`/admin/cms/pages/${id}`, { method: "PATCH", body: JSON.stringify(data) }); await dispatch(loadPages()).unwrap(); }
+  catch (error) { return rejectWithValue(messageFrom(error, "Could not update page.")); }
+});
+export const deletePage = createAsyncThunk("admin/deletePage", async (id: string, { dispatch, rejectWithValue }) => {
+  try { await api(`/admin/cms/pages/${id}`, { method: "DELETE" }); await dispatch(loadPages()).unwrap(); }
+  catch (error) { return rejectWithValue(messageFrom(error, "Could not delete page.")); }
+});
+
+// ─── CMS Blog Posts Thunks ────────────────────────────────────
+export const loadPosts = createAsyncThunk("admin/loadPosts", async (_, { rejectWithValue }) => {
+  try { return (await api<{ data: { posts: BlogPost[] } }>("/admin/cms/posts")).data.posts; }
+  catch (error) { return rejectWithValue(messageFrom(error, "Could not load blog posts.")); }
+});
+export const createPost = createAsyncThunk("admin/createPost", async (payload: Partial<BlogPost>, { dispatch, rejectWithValue }) => {
+  try { await api("/admin/cms/posts", { method: "POST", body: JSON.stringify(payload) }); await dispatch(loadPosts()).unwrap(); }
+  catch (error) { return rejectWithValue(messageFrom(error, "Could not create blog post.")); }
+});
+export const updatePost = createAsyncThunk("admin/updatePost", async ({ id, data }: { id: string; data: Partial<BlogPost> }, { dispatch, rejectWithValue }) => {
+  try { await api(`/admin/cms/posts/${id}`, { method: "PATCH", body: JSON.stringify(data) }); await dispatch(loadPosts()).unwrap(); }
+  catch (error) { return rejectWithValue(messageFrom(error, "Could not update blog post.")); }
+});
+export const deletePost = createAsyncThunk("admin/deletePost", async (id: string, { dispatch, rejectWithValue }) => {
+  try { await api(`/admin/cms/posts/${id}`, { method: "DELETE" }); await dispatch(loadPosts()).unwrap(); }
+  catch (error) { return rejectWithValue(messageFrom(error, "Could not delete blog post.")); }
+});
+
+// ─── Banners Thunks ───────────────────────────────────────────
+export const loadBanners = createAsyncThunk("admin/loadBanners", async (_, { rejectWithValue }) => {
+  try { return (await api<{ data: { banners: Banner[] } }>("/admin/banners")).data.banners; }
+  catch (error) { return rejectWithValue(messageFrom(error, "Could not load banners.")); }
+});
+export const createBanner = createAsyncThunk("admin/createBanner", async (payload: Partial<Banner>, { dispatch, rejectWithValue }) => {
+  try { await api("/admin/banners", { method: "POST", body: JSON.stringify(payload) }); await dispatch(loadBanners()).unwrap(); }
+  catch (error) { return rejectWithValue(messageFrom(error, "Could not create banner.")); }
+});
+export const updateBanner = createAsyncThunk("admin/updateBanner", async ({ id, data }: { id: string; data: Partial<Banner> }, { dispatch, rejectWithValue }) => {
+  try { await api(`/admin/banners/${id}`, { method: "PATCH", body: JSON.stringify(data) }); await dispatch(loadBanners()).unwrap(); }
+  catch (error) { return rejectWithValue(messageFrom(error, "Could not update banner.")); }
+});
+export const deleteBanner = createAsyncThunk("admin/deleteBanner", async (id: string, { dispatch, rejectWithValue }) => {
+  try { await api(`/admin/banners/${id}`, { method: "DELETE" }); await dispatch(loadBanners()).unwrap(); }
+  catch (error) { return rejectWithValue(messageFrom(error, "Could not delete banner.")); }
+});
+
+// ─── Storefront Customizer / Settings Thunks ───────────────────
+export const loadSettings = createAsyncThunk("admin/loadSettings", async (_, { rejectWithValue }) => {
+  try { return (await api<{ data: { settings: SiteSettings } }>("/admin/cms/settings")).data.settings; }
+  catch (error) { return rejectWithValue(messageFrom(error, "Could not load settings.")); }
+});
+export const updateSetting = createAsyncThunk("admin/updateSetting", async ({ key, value }: { key: string; value: any }, { dispatch, rejectWithValue }) => {
+  try { await api(`/admin/cms/settings/${key}`, { method: "PUT", body: JSON.stringify({ value }) }); await dispatch(loadSettings()).unwrap(); }
+  catch (error) { return rejectWithValue(messageFrom(error, "Could not save settings.")); }
+});
+
 const adminSlice = createSlice({
   name: "admin",
   initialState,
@@ -103,11 +179,29 @@ const adminSlice = createSlice({
       builder.addCase(thunk.fulfilled, (state, action: PayloadAction<T[]>) => { (state[target] as ListState<T>).items = action.payload; (state[target] as ListState<T>).isLoading = false; });
       builder.addCase(thunk.rejected, (state, action) => { (state[target] as ListState<T>).isLoading = false; (state[target] as ListState<T>).error = action.payload as string ?? "Request failed"; });
     };
-    listCases<Product>(loadProducts, "products"); listCases<Category>(loadCategories, "categories"); listCases<Order>(loadOrders, "orders"); listCases<Customer>(loadCustomers, "customers");
+    listCases<Product>(loadProducts, "products");
+    listCases<Category>(loadCategories, "categories");
+    listCases<Order>(loadOrders, "orders");
+    listCases<Customer>(loadCustomers, "customers");
+    listCases<ContentPage>(loadPages, "pages");
+    listCases<BlogPost>(loadPosts, "posts");
+    listCases<Banner>(loadBanners, "banners");
+
     builder.addCase(loadDashboard.pending, (state) => { state.dashboard.isLoading = true; state.dashboard.error = null; })
       .addCase(loadDashboard.fulfilled, (state, action) => { state.dashboard.data = action.payload; state.dashboard.isLoading = false; })
       .addCase(loadDashboard.rejected, (state, action) => { state.dashboard.isLoading = false; state.dashboard.error = action.payload as string ?? "Could not load dashboard."; });
-    [createCategory, toggleCategory, createProduct, updateOrderStatus, toggleCustomer].forEach((thunk) => {
+
+    builder.addCase(loadSettings.pending, (state) => { state.settings.isLoading = true; state.settings.error = null; })
+      .addCase(loadSettings.fulfilled, (state, action) => { state.settings.data = action.payload; state.settings.isLoading = false; })
+      .addCase(loadSettings.rejected, (state, action) => { state.settings.isLoading = false; state.settings.error = action.payload as string ?? "Could not load settings."; });
+
+    [
+      createCategory, toggleCategory, createProduct, updateOrderStatus, toggleCustomer,
+      createPage, updatePage, deletePage,
+      createPost, updatePost, deletePost,
+      createBanner, updateBanner, deleteBanner,
+      updateSetting,
+    ].forEach((thunk) => {
       builder.addCase(thunk.pending, (state) => { state.mutation.isLoading = true; state.mutation.error = null; });
       builder.addCase(thunk.fulfilled, (state) => { state.mutation.isLoading = false; });
       builder.addCase(thunk.rejected, (state, action) => { state.mutation.isLoading = false; state.mutation.error = action.payload as string ?? "Request failed"; });

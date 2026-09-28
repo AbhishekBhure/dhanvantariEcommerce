@@ -7,6 +7,7 @@ import adminCustomerRoutes from "./customer.admin.routes.js";
 import adminCouponRoutes from "./coupon.admin.routes.js";
 import adminBannerRoutes from "./banner.admin.routes.js";
 import adminDashboardRoutes from "./dashboard.admin.routes.js";
+import adminCmsRoutes from "./cms.admin.routes.js";
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -20,5 +21,6 @@ router.use("/orders", adminOrderRoutes);
 router.use("/customers", adminCustomerRoutes);
 router.use("/coupons", adminCouponRoutes);
 router.use("/banners", adminBannerRoutes);
+router.use("/cms", adminCmsRoutes);
 
 export default router;

@@ -367,7 +367,7 @@ export interface Shipment {
   updatedAt: string;
 }
 
-// ─── Banner / Content Types ──────────────────────────────────
+// ─── Banner / Content / CMS Types ─────────────────────────────
 
 export interface Banner {
   id: string;
@@ -381,6 +381,73 @@ export interface Banner {
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ContentPage {
+  id: string;
+  slug: string;
+  title: string;
+  excerpt: Nullable<string>;
+  content: string;
+  featuredImage: Nullable<string>;
+  isPublished: boolean;
+  metaTitle: Nullable<string>;
+  metaDescription: Nullable<string>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BlogPost {
+  id: string;
+  slug: string;
+  title: string;
+  excerpt: Nullable<string>;
+  content: string;
+  coverImage: Nullable<string>;
+  category: Nullable<string>;
+  tags: Nullable<string>;
+  authorName: string;
+  isPublished: boolean;
+  publishedAt: Nullable<string>;
+  metaTitle: Nullable<string>;
+  metaDescription: Nullable<string>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AnnouncementSettings {
+  isEnabled: boolean;
+  text: string;
+  linkUrl: string;
+  badgeText: string;
+}
+
+export interface StorefrontInfoSettings {
+  brandName: string;
+  tagline: string;
+  phone: string;
+  email: string;
+  address: string;
+  hours: string;
+  whatsappNumber: string;
+  instagramUrl: string;
+  facebookUrl: string;
+  youtubeUrl: string;
+}
+
+export interface TrustBadgeItem {
+  icon: string;
+  title: string;
+  description: string;
+}
+
+export interface StorefrontHomeSettings {
+  trustBadges: TrustBadgeItem[];
+  storyHeading: string;
+  storyHighlight: string;
+  storyDescription: string;
+  storyCtaText: string;
+  storyCtaLink: string;
 }
 
 // ─── Checkout Types ──────────────────────────────────────────

@@ -505,18 +505,56 @@ model Banner {
   @@map("banners")
 }
 
-// ─── Content Page ─────────────────────────────────────────────
+// ─── Content Page (Dynamic CMS Pages with [slug]) ─────────────
 
 model ContentPage {
-  id          String   @id @default(uuid())
-  slug        String   @unique
-  title       String
-  content     String
-  isPublished Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              String   @id @default(uuid())
+  slug            String   @unique
+  title           String
+  excerpt         String?
+  content         String   @db.Text
+  featuredImage   String?
+  isPublished     Boolean  @default(false)
+  metaTitle       String?
+  metaDescription String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@map("content_pages")
+}
+
+// ─── Blog Post (CMS Articles with [slug]) ─────────────────────
+
+model BlogPost {
+  id              String    @id @default(uuid())
+  slug            String    @unique
+  title           String
+  excerpt         String?
+  content         String    @db.Text
+  coverImage      String?
+  category        String?
+  tags            String?
+  authorName      String    @default("Dhanvantari Vaidya")
+  isPublished     Boolean   @default(false)
+  publishedAt     DateTime?
+  metaTitle       String?
+  metaDescription String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("blog_posts")
+}
+
+// ─── Site Settings (Storefront Customizer) ────────────────────
+
+model SiteSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("site_settings")
 }
 
 // ─── Audit Log ────────────────────────────────────────────────
