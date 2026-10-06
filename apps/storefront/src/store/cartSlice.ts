@@ -11,6 +11,7 @@ interface CartState {
   shippingCharge: number;
   total: number;
   isLoading: boolean;
+  hasLoaded: boolean;
   isOpen: boolean; // drawer state
 }
 
@@ -23,10 +24,11 @@ const initialState: CartState = {
   shippingCharge: 0,
   total: 0,
   isLoading: false,
+  hasLoaded: false,
   isOpen: false,
 };
 
-export type CartData = Omit<CartState, "isLoading" | "isOpen">;
+export type CartData = Omit<CartState, "isLoading" | "hasLoaded" | "isOpen">;
 type CartResponse = { data: { cart: CartData } };
 const cartHeaders = (createSession = false) => {
   if (typeof window === "undefined") return undefined;
@@ -85,8 +87,8 @@ const cartSlice = createSlice({
   extraReducers: (builder) => {
     [loadCart, addCartItem, updateCartItem, removeCartItem].forEach((thunk) => {
       builder.addCase(thunk.pending, (state) => { state.isLoading = true; });
-      builder.addCase(thunk.fulfilled, (state, action) => { state.isLoading = false; if (action.payload) Object.assign(state, action.payload); });
-      builder.addCase(thunk.rejected, (state) => { state.isLoading = false; });
+      builder.addCase(thunk.fulfilled, (state, action) => { state.isLoading = false; if (thunk === loadCart) state.hasLoaded = true; if (action.payload) Object.assign(state, action.payload); });
+      builder.addCase(thunk.rejected, (state) => { state.isLoading = false; if (thunk === loadCart) state.hasLoaded = true; });
     });
   },
 });

@@ -43,13 +43,23 @@ router.post("/", validate(couponSchema), async (req, res, next) => {
       validUntil?: string | null;
       usageLimit?: number | null;
       perUserLimit?: number | null;
+      productRestrictions: string[];
+      categoryRestrictions: string[];
     };
+
+    const { productRestrictions, categoryRestrictions, ...couponData } = data;
 
     const coupon = await prisma.coupon.create({
       data: {
-        ...data,
+        ...couponData,
         validFrom: new Date(data.validFrom),
         validUntil: data.validUntil ? new Date(data.validUntil) : null,
+        productRestrictions: {
+          create: productRestrictions.map((productId) => ({ productId })),
+        },
+        categoryRestrictions: {
+          create: categoryRestrictions.map((categoryId) => ({ categoryId })),
+        },
       },
     });
 
@@ -61,7 +71,7 @@ router.post("/", validate(couponSchema), async (req, res, next) => {
 
 router.patch("/:id", validate(couponSchema.partial()), async (req, res, next) => {
   try {
-    const id = Array.isArray(req.params["id"]) ? req.params["id"][0] : req.params["id"] ?? "";
+    const id = (Array.isArray(req.params["id"]) ? req.params["id"][0] : req.params["id"]) ?? "";
     const existing = await prisma.coupon.findUnique({ where: { id } });
     if (!existing) throw new NotFoundError("Coupon");
 
@@ -69,14 +79,40 @@ router.patch("/:id", validate(couponSchema.partial()), async (req, res, next) =>
       isActive: boolean;
       validUntil: string | null;
       usageLimit: number | null;
+      code: string;
+      type: "PERCENTAGE" | "FIXED";
+      value: number;
+      minimumOrder: number | null;
+      maximumDiscount: number | null;
+      description: string | null;
+      validFrom: string;
+      perUserLimit: number | null;
+      productRestrictions: string[];
+      categoryRestrictions: string[];
     }>;
 
-    const coupon = await prisma.coupon.update({
-      where: { id },
-      data: {
-        ...data,
-        validUntil: data.validUntil ? new Date(data.validUntil) : undefined,
-      },
+    const { productRestrictions, categoryRestrictions, ...couponFields } = data;
+    const coupon = await prisma.$transaction(async (tx) => {
+      if (productRestrictions !== undefined) {
+        await tx.couponProductRestriction.deleteMany({ where: { couponId: id } });
+        if (productRestrictions.length) {
+          await tx.couponProductRestriction.createMany({ data: productRestrictions.map((productId) => ({ couponId: id, productId })) });
+        }
+      }
+      if (categoryRestrictions !== undefined) {
+        await tx.couponCategoryRestriction.deleteMany({ where: { couponId: id } });
+        if (categoryRestrictions.length) {
+          await tx.couponCategoryRestriction.createMany({ data: categoryRestrictions.map((categoryId) => ({ couponId: id, categoryId })) });
+        }
+      }
+      return tx.coupon.update({
+        where: { id },
+        data: {
+          ...couponFields,
+          validFrom: couponFields.validFrom ? new Date(couponFields.validFrom) : undefined,
+          validUntil: couponFields.validUntil ? new Date(couponFields.validUntil) : couponFields.validUntil,
+        },
+      });
     });
 
     res.json({ success: true, data: { coupon } });
