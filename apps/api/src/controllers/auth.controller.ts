@@ -1,14 +1,19 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import { Request, Response, NextFunction } from "express";
 import prisma from "../lib/prisma.js";
 import {
   AppError,
+  BadRequestError,
   ConflictError,
   UnauthorizedError,
   NotFoundError,
 } from "../middleware/errorHandler.js";
 import { AuthTokenPayload, UserRole } from "@dhanvantari/shared-types";
+import { sendEmailVerificationEmail, sendPasswordChangedEmail, sendPasswordResetEmail, sendWelcomeEmail } from "../lib/email.js";
+
+const STOREFRONT_URL = process.env["STOREFRONT_URL"]?.split(",").map((url) => url.trim()).find((url) => url.startsWith("https://")) ?? process.env["STOREFRONT_URL"]?.split(",")[0]?.trim() ?? "http://localhost:3000";
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
@@ -83,29 +88,24 @@ export async function register(
     if (existing) throw new ConflictError("An account with this email already exists");
 
     const passwordHash = await bcrypt.hash(password, 12);
+    const verificationToken = crypto.randomBytes(32).toString("hex");
     const user = await prisma.user.create({
-      data: { name, email, passwordHash, phone: phone ?? null },
+      data: {
+        name,
+        email: email.toLowerCase(),
+        passwordHash,
+        phone: phone ?? null,
+        emailVerificationToken: verificationToken,
+        emailVerificationExpiry: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      },
       select: { id: true, email: true, name: true, role: true },
     });
-
-    const payload: AuthTokenPayload = {
-      userId: user.id,
-      email: user.email,
-      role: user.role as UserRole,
-    };
-    const token = signToken(payload);
-
-    await mergeGuestCart(user.id, req.headers["x-session-id"] as string | undefined);
-
-    res.cookie("access_token", token, {
-      ...COOKIE_OPTIONS,
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    await sendEmailVerificationEmail(user.email, user.name, `${STOREFRONT_URL}/verify-email?token=${verificationToken}`);
 
     res.status(201).json({
       success: true,
-      message: "Account created successfully",
-      data: { user },
+      message: "Account created. Check your email to verify your account before signing in.",
+      data: { user: { ...user, emailVerified: false } },
     });
   } catch (err) {
     next(err);
@@ -130,6 +130,10 @@ export async function login(
 
     if (!user || !isMatch) {
       throw new UnauthorizedError("Invalid email or password");
+    }
+
+    if (!user.emailVerified) {
+      throw new UnauthorizedError("Please verify your email before signing in.");
     }
 
     if (!user.isActive) {
@@ -170,6 +174,50 @@ export async function login(
   } catch (err) {
     next(err);
   }
+}
+
+// POST /api/auth/verify-email
+export async function verifyEmail(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { token } = req.body as { token: string };
+    const user = await prisma.user.findFirst({
+      where: { emailVerificationToken: token, emailVerificationExpiry: { gt: new Date() } },
+    });
+    if (!user) throw new BadRequestError("Verification link is invalid or expired.");
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { emailVerified: true, emailVerificationToken: null, emailVerificationExpiry: null },
+    });
+    await sendWelcomeEmail(user.email, user.name);
+    res.json({ success: true, message: "Email verified. You can now sign in." });
+  } catch (err) { next(err); }
+}
+
+// POST /api/auth/forgot-password
+export async function forgotPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { email } = req.body as { email: string };
+    const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+    if (user?.passwordHash && user.emailVerified) {
+      const token = crypto.randomBytes(32).toString("hex");
+      await prisma.user.update({ where: { id: user.id }, data: { passwordResetToken: token, passwordResetExpiry: new Date(Date.now() + 30 * 60 * 1000) } });
+      await sendPasswordResetEmail(user.email, { name: user.name, resetUrl: `${STOREFRONT_URL}/reset-password?token=${token}` });
+    }
+    res.json({ success: true, message: "If an account exists for that email, password reset instructions have been sent." });
+  } catch (err) { next(err); }
+}
+
+// POST /api/auth/reset-password
+export async function resetPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { token, password } = req.body as { token: string; password: string };
+    const user = await prisma.user.findFirst({ where: { passwordResetToken: token, passwordResetExpiry: { gt: new Date() } } });
+    if (!user) throw new BadRequestError("Password reset link is invalid or expired.");
+    const passwordHash = await bcrypt.hash(password, 12);
+    await prisma.user.update({ where: { id: user.id }, data: { passwordHash, passwordResetToken: null, passwordResetExpiry: null } });
+    await sendPasswordChangedEmail(user.email, user.name);
+    res.json({ success: true, message: "Password updated. You can now sign in." });
+  } catch (err) { next(err); }
 }
 
 // POST /api/auth/logout

@@ -7,14 +7,14 @@ import { useAppDispatch } from "@/store/hooks";
 import { addCartItem, openCart } from "@/store/cartSlice";
 import { toast } from "@/hooks/use-toast";
 
-export default function AddToCartButton({ productId, disabled }: { productId: string; disabled?: boolean }) {
+export default function AddToCartButton({ productId, variantId, disabled }: { productId: string; variantId?: string; disabled?: boolean }) {
   const dispatch = useAppDispatch();
   const [isLoading, setIsLoading] = useState(false);
 
   async function handleAdd() {
     setIsLoading(true);
     try {
-      const result = await dispatch(addCartItem({ productId, quantity: 1 }));
+      const result = await dispatch(addCartItem({ productId, variantId, quantity: 1 }));
       if (addCartItem.rejected.match(result)) throw new Error(result.payload as string ?? "Please try again.");
       dispatch(openCart());
       toast({ title: "Added to cart", description: "Your product is ready for checkout." });

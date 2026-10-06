@@ -9,6 +9,7 @@ import {
 } from "../middleware/errorHandler.js";
 import { CreateOrderInput } from "@dhanvantari/validation";
 import { OrderStatus, PaymentMethod } from "@dhanvantari/shared-types";
+import { sendOrderConfirmationEmail } from "../lib/email.js";
 
 const SHIPPING_THRESHOLD = 499;
 const SHIPPING_CHARGE = 49;
@@ -310,6 +311,27 @@ export async function createOrder(
         },
       },
     });
+
+    const customer = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+    if (customer) {
+      await sendOrderConfirmationEmail(customer.email, {
+        orderNumber: order.orderNumber,
+        orderId: order.id,
+        customerName: address.name,
+        items: cart.items.map((item) => ({ productName: item.product.name, quantity: item.quantity, price: Number(item.variant?.price ?? item.product.price), variantName: item.variant?.name })),
+        subtotal,
+        couponDiscount,
+        shippingCharge,
+        total,
+        paymentMethod: "COD",
+        addressName: address.name,
+        addressLine1: address.line1,
+        addressLine2: address.line2,
+        addressCity: address.city,
+        addressState: address.state,
+        addressPincode: address.pincode,
+      });
+    }
 
     res.status(201).json({
       success: true,

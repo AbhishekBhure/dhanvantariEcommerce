@@ -31,6 +31,7 @@ type OrderResponse = {
     dummyPayment?: boolean;
   };
 };
+type CouponResult = { data: { coupon: { id: string; code: string; type: "PERCENTAGE" | "FIXED"; value: number; minimumOrder: number | null; maximumDiscount: number | null; description: string | null } } };
 
 type RazorpaySuccessResponse = {
   razorpay_order_id: string;
@@ -122,6 +123,10 @@ export default function CheckoutPage() {
   const [isPincodeChecking, setIsPincodeChecking] = useState(false);
   const [isPincodeValid, setIsPincodeValid] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
+  const [couponCode, setCouponCode] = useState("");
+  const [coupon, setCoupon] = useState<CouponResult["data"]["coupon"] | null>(null);
+  const [couponError, setCouponError] = useState("");
+  const [couponLoading, setCouponLoading] = useState(false);
 
   function setFieldError(field: string, message: string) {
     setFieldErrors((current) => ({ ...current, [field]: message }));
@@ -312,6 +317,7 @@ export default function CheckoutPage() {
       const response = await api.post<OrderResponse>("/orders", {
         addressId: selectedAddressId,
         paymentMethod,
+        couponCode: coupon?.code,
       });
 
       if (paymentMethod === "RAZORPAY" && response.data.razorpayOrderId) {
@@ -364,6 +370,25 @@ export default function CheckoutPage() {
       setIsSubmitting(false);
     }
   }
+
+  async function applyCoupon() {
+    setCouponError("");
+    setCouponLoading(true);
+    try {
+      const response = await api.post<CouponResult>("/cart/coupon", { code: couponCode.trim().toUpperCase() });
+      if (response.data.coupon.minimumOrder && cart && cart.subtotal < response.data.coupon.minimumOrder) {
+        throw new Error(`This coupon requires a minimum order of ${formatPrice(response.data.coupon.minimumOrder)}.`);
+      }
+      setCoupon(response.data.coupon);
+    } catch (requestError) {
+      setCoupon(null);
+      setCouponError(requestError instanceof ApiError ? requestError.message : requestError instanceof Error ? requestError.message : "Could not apply coupon.");
+    } finally { setCouponLoading(false); }
+  }
+
+  const couponDiscount = coupon && cart
+    ? Math.min(coupon.type === "PERCENTAGE" ? cart.subtotal * coupon.value / 100 : coupon.value, coupon.maximumDiscount ?? Number.POSITIVE_INFINITY, cart.subtotal)
+    : 0;
 
   if (isLoading)
     return (
@@ -641,8 +666,14 @@ export default function CheckoutPage() {
             <div className="flex justify-between">
               <span>Savings</span>
               <span className="text-brand-700">
-                -{formatPrice(cart.discount)}
+                -{formatPrice(cart.discount + couponDiscount)}
               </span>
+            </div>
+            <div className="border-y border-border py-3">
+              <label htmlFor="checkout-coupon" className="mb-2 block text-xs font-semibold">Coupon code</label>
+              <div className="flex gap-2"><input id="checkout-coupon" value={couponCode} onChange={(event) => setCouponCode(event.target.value.toUpperCase())} disabled={Boolean(coupon)} className="h-10 min-w-0 flex-1 border border-input bg-white px-3 text-sm" placeholder="Enter code" /><button type="button" onClick={() => coupon ? (setCoupon(null), setCouponCode("")) : void applyCoupon()} disabled={couponLoading || (!coupon && !couponCode.trim())} className="h-10 border border-brand-700 px-3 text-xs font-semibold text-brand-700 disabled:opacity-50">{couponLoading ? "Checking" : coupon ? "Remove" : "Apply"}</button></div>
+              {coupon && <p className="mt-2 text-xs text-brand-700">{coupon.code} applied{coupon.description ? ` · ${coupon.description}` : ""}</p>}
+              {couponError && <p role="alert" className="mt-2 text-xs text-destructive">{couponError}</p>}
             </div>
             <div className="flex justify-between">
               <span>Shipping</span>
@@ -654,7 +685,7 @@ export default function CheckoutPage() {
             </div>
             <div className="flex justify-between border-t border-border pt-3 text-base font-bold">
               <span>Total</span>
-              <span>{formatPrice(cart.total)}</span>
+              <span>{formatPrice(cart.total - couponDiscount)}</span>
             </div>
           </div>
           <Button

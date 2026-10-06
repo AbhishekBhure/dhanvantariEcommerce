@@ -19,6 +19,8 @@ export type ContentPage = { id: string; slug: string; title: string; excerpt: st
 export type BlogPost = { id: string; slug: string; title: string; excerpt: string | null; content: string; coverImage: string | null; category: string | null; tags: string | null; authorName: string; isPublished: boolean; publishedAt: string | null; metaTitle: string | null; metaDescription: string | null; createdAt: string; updatedAt: string };
 export type Banner = { id: string; title: string; subtitle: string | null; imageUrl: string; mobileImageUrl: string | null; linkUrl: string | null; linkText: string | null; isActive: boolean; sortOrder: number };
 export type SiteSettings = Record<string, any>;
+export type Coupon = { id: string; code: string; type: "PERCENTAGE" | "FIXED"; value: number; minimumOrder: number | null; maximumDiscount: number | null; description: string | null; isActive: boolean; validFrom: string; validUntil: string | null; usageLimit: number | null; perUserLimit: number | null; _count?: { redemptions: number } };
+export type AdminUser = { id: string; name: string; email: string; role: "ADMIN" | "SUPER_ADMIN"; isActive: boolean; emailVerified: boolean; createdAt?: string };
 
 type ListState<T> = { items: T[]; isLoading: boolean; error: string | null };
 export type AdminState = {
@@ -32,6 +34,8 @@ export type AdminState = {
   pages: ListState<ContentPage>;
   posts: ListState<BlogPost>;
   banners: ListState<Banner>;
+  coupons: ListState<Coupon>;
+  adminUsers: ListState<AdminUser>;
   settings: { data: SiteSettings; isLoading: boolean; error: string | null };
   mutation: { isLoading: boolean; error: string | null };
 };
@@ -48,6 +52,8 @@ const initialState: AdminState = {
   pages: initialList<ContentPage>(),
   posts: initialList<BlogPost>(),
   banners: initialList<Banner>(),
+  coupons: initialList<Coupon>(),
+  adminUsers: initialList<AdminUser>(),
   settings: { data: {}, isLoading: false, error: null },
   mutation: { isLoading: false, error: null },
 };
@@ -63,20 +69,25 @@ export const loadDashboard = createAsyncThunk("admin/loadDashboard", async (_, {
   try { return (await api<{ data: Dashboard }>("/admin/dashboard")).data; }
   catch (error) { return rejectWithValue(messageFrom(error, "Could not load dashboard.")); }
 });
-export const loadProducts = createAsyncThunk("admin/loadProducts", async (_, { rejectWithValue }) => {
-  try { return (await api<{ data: { products: Product[] } }>("/admin/products?page=1&pageSize=50")).data.products; }
+export const loadProducts = createAsyncThunk("admin/loadProducts", async (query: { page?: number; pageSize?: number; search?: string } | undefined = undefined, { rejectWithValue }) => {
+  try { const params = new URLSearchParams({ page: String(query?.page ?? 1), pageSize: String(query?.pageSize ?? 20) }); if (query?.search) params.set("search", query.search); return (await api<{ data: { products: Product[] } }>(`/admin/products?${params.toString()}`)).data.products; }
   catch (error) { return rejectWithValue(messageFrom(error, "Could not load products.")); }
 });
 export const loadCategories = createAsyncThunk("admin/loadCategories", async (_, { rejectWithValue }) => {
   try { return (await api<{ data: { categories: Category[] } }>("/admin/categories")).data.categories; }
   catch (error) { return rejectWithValue(messageFrom(error, "Could not load categories.")); }
 });
-export const loadOrders = createAsyncThunk("admin/loadOrders", async (_, { rejectWithValue }) => {
-  try { return (await api<{ data: { orders: Order[] } }>("/admin/orders?page=1&pageSize=50")).data.orders; }
+export const loadOrders = createAsyncThunk("admin/loadOrders", async (query: { page?: number; pageSize?: number; search?: string; status?: string } | undefined = undefined, { rejectWithValue }) => {
+  try {
+    const params = new URLSearchParams({ page: String(query?.page ?? 1), pageSize: String(query?.pageSize ?? 20) });
+    if (query?.search) params.set("search", query.search);
+    if (query?.status) params.set("status", query.status);
+    return (await api<{ data: { orders: Order[] } }>(`/admin/orders?${params.toString()}`)).data.orders;
+  }
   catch (error) { return rejectWithValue(messageFrom(error, "Could not load orders.")); }
 });
-export const loadCustomers = createAsyncThunk("admin/loadCustomers", async (_, { rejectWithValue }) => {
-  try { return (await api<{ data: { customers: Customer[] } }>("/admin/customers?page=1&pageSize=50")).data.customers; }
+export const loadCustomers = createAsyncThunk("admin/loadCustomers", async (query: { page?: number; pageSize?: number; search?: string } | undefined = undefined, { rejectWithValue }) => {
+  try { const params = new URLSearchParams({ page: String(query?.page ?? 1), pageSize: String(query?.pageSize ?? 20) }); if (query?.search) params.set("search", query.search); return (await api<{ data: { customers: Customer[] } }>(`/admin/customers?${params.toString()}`)).data.customers; }
   catch (error) { return rejectWithValue(messageFrom(error, "Could not load customers.")); }
 });
 export const createCategory = createAsyncThunk("admin/createCategory", async (payload: { name: string; description: string | null; sortOrder: number }, { dispatch, rejectWithValue }) => {
@@ -91,6 +102,14 @@ export const createProduct = createAsyncThunk("admin/createProduct", async (payl
   try { await api("/admin/products", { method: "POST", body: JSON.stringify(payload) }); await dispatch(loadProducts()).unwrap(); }
   catch (error) { return rejectWithValue(messageFrom(error, "Could not create product.")); }
 });
+export const updateProduct = createAsyncThunk("admin/updateProduct", async ({ id, data }: { id: string; data: Record<string, unknown> }, { dispatch, rejectWithValue }) => {
+  try { await api(`/admin/products/${id}`, { method: "PATCH", body: JSON.stringify(data) }); await dispatch(loadProducts()).unwrap(); }
+  catch (error) { return rejectWithValue(messageFrom(error, "Could not update product.")); }
+});
+export const adjustInventory = createAsyncThunk("admin/adjustInventory", async ({ id, quantity, reason }: { id: string; quantity: number; reason: string }, { dispatch, rejectWithValue }) => {
+  try { await api(`/admin/products/${id}/inventory-adjust`, { method: "POST", body: JSON.stringify({ quantity, reason }) }); await dispatch(loadProducts()).unwrap(); }
+  catch (error) { return rejectWithValue(messageFrom(error, "Could not adjust inventory.")); }
+});
 export const updateOrderStatus = createAsyncThunk("admin/updateOrderStatus", async (payload: { orderId: string; status: string }, { dispatch, rejectWithValue }) => {
   try { await api(`/admin/orders/${payload.orderId}/status`, { method: "PATCH", body: JSON.stringify({ status: payload.status }) }); await dispatch(loadOrders()).unwrap(); }
   catch (error) { return rejectWithValue(messageFrom(error, "Could not update order status.")); }
@@ -98,6 +117,33 @@ export const updateOrderStatus = createAsyncThunk("admin/updateOrderStatus", asy
 export const toggleCustomer = createAsyncThunk("admin/toggleCustomer", async (customer: Customer, { dispatch, rejectWithValue }) => {
   try { await api(`/admin/customers/${customer.id}/status`, { method: "PATCH", body: JSON.stringify({ isActive: !customer.isActive }) }); await dispatch(loadCustomers()).unwrap(); }
   catch (error) { return rejectWithValue(messageFrom(error, "Could not update customer.")); }
+});
+export const loadCoupons = createAsyncThunk("admin/loadCoupons", async (_, { rejectWithValue }) => {
+  try { return (await api<{ data: { coupons: Coupon[] } }>("/admin/coupons")).data.coupons; }
+  catch (error) { return rejectWithValue(messageFrom(error, "Could not load coupons.")); }
+});
+export const createCoupon = createAsyncThunk("admin/createCoupon", async (payload: Record<string, unknown>, { dispatch, rejectWithValue }) => {
+  try { await api("/admin/coupons", { method: "POST", body: JSON.stringify(payload) }); await dispatch(loadCoupons()).unwrap(); }
+  catch (error) { return rejectWithValue(messageFrom(error, "Could not create coupon.")); }
+});
+export const setCouponActive = createAsyncThunk("admin/setCouponActive", async ({ id, isActive }: { id: string; isActive: boolean }, { dispatch, rejectWithValue }) => {
+  try { await api(`/admin/coupons/${id}`, { method: "PATCH", body: JSON.stringify({ isActive }) }); await dispatch(loadCoupons()).unwrap(); }
+  catch (error) { return rejectWithValue(messageFrom(error, "Could not update coupon.")); }
+});
+export const loadAdminUsers = createAsyncThunk("admin/loadAdminUsers", async (_, { rejectWithValue }) => {
+  try { return (await api<{ data: { users: AdminUser[] } }>("/admin/users")).data.users; }
+  catch (error) { return rejectWithValue(messageFrom(error, "Could not load admin users.")); }
+});
+export const updateAdminUser = createAsyncThunk("admin/updateAdminUser", async ({ id, data }: { id: string; data: { role?: AdminUser["role"]; isActive?: boolean } }, { dispatch, rejectWithValue }) => {
+  try {
+    if (data.role) await api(`/admin/users/${id}/role`, { method: "PATCH", body: JSON.stringify({ role: data.role }) });
+    if (data.isActive !== undefined) await api(`/admin/users/${id}/status`, { method: "PATCH", body: JSON.stringify({ isActive: data.isActive }) });
+    await dispatch(loadAdminUsers()).unwrap();
+  } catch (error) { return rejectWithValue(messageFrom(error, "Could not update admin user.")); }
+});
+export const inviteAdmin = createAsyncThunk("admin/inviteAdmin", async (email: string, { dispatch, rejectWithValue }) => {
+  try { await api("/admin/users/invite", { method: "POST", body: JSON.stringify({ email }) }); await dispatch(loadAdminUsers()).unwrap(); }
+  catch (error) { return rejectWithValue(messageFrom(error, "Could not grant admin access.")); }
 });
 
 // ─── CMS Pages Thunks ─────────────────────────────────────────
@@ -186,6 +232,8 @@ const adminSlice = createSlice({
     listCases<ContentPage>(loadPages, "pages");
     listCases<BlogPost>(loadPosts, "posts");
     listCases<Banner>(loadBanners, "banners");
+    listCases<Coupon>(loadCoupons, "coupons");
+    listCases<AdminUser>(loadAdminUsers, "adminUsers");
 
     builder.addCase(loadDashboard.pending, (state) => { state.dashboard.isLoading = true; state.dashboard.error = null; })
       .addCase(loadDashboard.fulfilled, (state, action) => { state.dashboard.data = action.payload; state.dashboard.isLoading = false; })
@@ -196,10 +244,12 @@ const adminSlice = createSlice({
       .addCase(loadSettings.rejected, (state, action) => { state.settings.isLoading = false; state.settings.error = action.payload as string ?? "Could not load settings."; });
 
     [
-      createCategory, toggleCategory, createProduct, updateOrderStatus, toggleCustomer,
+      createCategory, toggleCategory, createProduct, updateProduct, adjustInventory, updateOrderStatus, toggleCustomer,
       createPage, updatePage, deletePage,
       createPost, updatePost, deletePost,
       createBanner, updateBanner, deleteBanner,
+      createCoupon, setCouponActive,
+      updateAdminUser, inviteAdmin,
       updateSetting,
     ].forEach((thunk) => {
       builder.addCase(thunk.pending, (state) => { state.mutation.isLoading = true; state.mutation.error = null; });

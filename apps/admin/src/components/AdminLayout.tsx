@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -16,6 +16,11 @@ import {
   ExternalLink,
   LogOut,
   Sparkles,
+  Menu,
+  X,
+  TicketPercent,
+  ShieldCheck,
+  Star,
 } from "lucide-react";
 import { useAppDispatch } from "@/store/hooks";
 import { logoutAdmin } from "@/store/adminSlice";
@@ -33,6 +38,9 @@ const commerceNav: NavItem[] = [
   { label: "Categories", href: "/categories", icon: Tags },
   { label: "Orders", href: "/orders", icon: ShoppingBag },
   { label: "Customers", href: "/customers", icon: Users },
+  { label: "Coupons", href: "/coupons", icon: TicketPercent },
+  { label: "Access & Roles", href: "/admin-users", icon: ShieldCheck },
+  { label: "Reviews", href: "/reviews", icon: Star },
 ];
 
 const cmsNav: NavItem[] = [
@@ -56,6 +64,8 @@ export default function AdminLayout({
   const pathname = usePathname();
   const router = useRouter();
   const dispatch = useAppDispatch();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const storefrontUrl = process.env["NEXT_PUBLIC_STOREFRONT_URL"] ?? "http://localhost:3000";
 
   async function handleLogout() {
     await dispatch(logoutAdmin());
@@ -69,8 +79,15 @@ export default function AdminLayout({
 
   return (
     <div className="admin-shell">
+      <header className="admin-mobile-header">
+        <span className="font-semibold">Dhanvantari Admin</span>
+        <button type="button" onClick={() => setMobileMenuOpen((open) => !open)} aria-label={mobileMenuOpen ? "Close navigation" : "Open navigation"} aria-expanded={mobileMenuOpen} className="admin-menu-button">
+          {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        </button>
+      </header>
+      {mobileMenuOpen && <button type="button" aria-label="Close navigation" className="admin-nav-backdrop" onClick={() => setMobileMenuOpen(false)} />}
       {/* ─── Sidebar ────────────────────────────────────────── */}
-      <aside className="admin-sidebar flex flex-col justify-between">
+      <aside className={`admin-sidebar flex flex-col justify-between ${mobileMenuOpen ? "is-open" : ""}`}>
         <div>
           {/* Brand */}
           <div className="flex items-center gap-2.5 pb-4 border-b border-emerald-800/60">
@@ -100,6 +117,7 @@ export default function AdminLayout({
                     <Link
                       key={item.href}
                       href={item.href}
+                      onClick={() => setMobileMenuOpen(false)}
                       className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors ${
                         active
                           ? "bg-white/15 text-white font-medium shadow-sm"
@@ -130,6 +148,7 @@ export default function AdminLayout({
                     <Link
                       key={item.href}
                       href={item.href}
+                      onClick={() => setMobileMenuOpen(false)}
                       className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors ${
                         active
                           ? "bg-emerald-500/25 border border-emerald-400/30 text-white font-medium shadow-sm"
@@ -149,7 +168,7 @@ export default function AdminLayout({
         {/* Footer actions */}
         <div className="pt-6 border-t border-emerald-800/60 space-y-2 mt-6">
           <a
-            href="http://localhost:3000"
+            href={storefrontUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium text-emerald-200 bg-white/5 hover:bg-white/10 transition-colors"

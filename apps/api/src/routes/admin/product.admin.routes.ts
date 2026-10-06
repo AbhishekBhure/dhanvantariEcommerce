@@ -1,11 +1,23 @@
 import { Router } from "express";
+import multer from "multer";
+import { randomUUID } from "crypto";
 import slugify from "slugify";
 import prisma from "../../lib/prisma.js";
 import { validate } from "../../middleware/validate.js";
-import { NotFoundError } from "../../middleware/errorHandler.js";
-import { productSchema, paginationSchema } from "@dhanvantari/validation";
+import { AppError, BadRequestError, NotFoundError } from "../../middleware/errorHandler.js";
+import logger from "../../lib/logger.js";
+import { productSchema, paginationSchema, type ProductInput } from "@dhanvantari/validation";
 
 const router: ReturnType<typeof Router> = Router();
+const imageUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, callback) => {
+    const allowed = new Set(["image/jpeg", "image/png", "image/webp", "image/avif"]);
+    if (!allowed.has(file.mimetype)) return callback(new Error("Upload a JPG, PNG, WebP, or AVIF image."));
+    callback(null, true);
+  },
+});
 
 // GET /api/admin/products
 router.get("/", validate(paginationSchema, "query"), async (req, res, next) => {
@@ -90,6 +102,38 @@ router.get("/:id", async (req, res, next) => {
   }
 });
 
+router.post("/:id/images/upload", imageUpload.single("image"), async (req, res, next) => {
+  try {
+    const id = Array.isArray(req.params["id"]) ? req.params["id"][0] : req.params["id"] ?? "";
+    const file = req.file;
+    if (!file) throw new BadRequestError("Choose a supported image file to upload.");
+    const product = await prisma.product.findUnique({ where: { id }, select: { id: true } });
+    if (!product) throw new NotFoundError("Product");
+
+    const supabaseUrl = process.env["SUPABASE_URL"]?.replace(/\/$/, "");
+    const serviceKey = process.env["SUPABASE_SERVICE_KEY"];
+    const bucket = process.env["SUPABASE_PRODUCT_IMAGES_BUCKET"] ?? "product-images";
+    if (!supabaseUrl || !serviceKey) throw new AppError("Supabase Storage is not configured on the API.", 503);
+
+    const extensionByType: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/avif": "avif" };
+    const storagePath = `${id}/${randomUUID()}.${extensionByType[file.mimetype]}`;
+    const uploadResponse = await fetch(`${supabaseUrl}/storage/v1/object/${encodeURIComponent(bucket)}/${storagePath.split("/").map(encodeURIComponent).join("/")}`, {
+      method: "POST",
+      headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": file.mimetype, "x-upsert": "false" },
+      body: file.buffer,
+      signal: AbortSignal.timeout(20000),
+    });
+    if (!uploadResponse.ok) {
+      const responseBody = await uploadResponse.text();
+      logger.error({ status: uploadResponse.status, responseBody, bucket }, "Supabase image upload failed");
+      throw new AppError("Image upload failed. Check the product-images bucket and API storage configuration.", 502);
+    }
+
+    const publicUrl = `${supabaseUrl}/storage/v1/object/public/${encodeURIComponent(bucket)}/${storagePath.split("/").map(encodeURIComponent).join("/")}`;
+    res.status(201).json({ success: true, data: { url: publicUrl, altText: file.originalname } });
+  } catch (error) { next(error); }
+});
+
 // POST /api/admin/products
 router.post("/", validate(productSchema), async (req, res, next) => {
   try {
@@ -171,22 +215,12 @@ router.post("/", validate(productSchema), async (req, res, next) => {
 router.patch("/:id", validate(productSchema.partial()), async (req, res, next) => {
   try {
     const id = Array.isArray(req.params["id"]) ? req.params["id"][0] : req.params["id"] ?? "";
-    const data = req.body as Partial<{
-      name: string;
-      isPublished: boolean;
-      isFeatured: boolean;
-      isBestseller: boolean;
-      isNew: boolean;
-      price: number;
-      mrp: number;
-      stock: number;
-      categoryIds: string[];
-    }>;
+    const data = req.body as Partial<ProductInput>;
 
     const existing = await prisma.product.findUnique({ where: { id } });
     if (!existing) throw new NotFoundError("Product");
 
-    const { categoryIds, ...rest } = data;
+    const { categoryIds, variants: _variants, ...rest } = data;
 
     const product = await prisma.$transaction(async (tx) => {
       if (categoryIds) {
@@ -206,6 +240,27 @@ router.patch("/:id", validate(productSchema.partial()), async (req, res, next) =
   } catch (err) {
     next(err);
   }
+});
+
+router.put("/:id/images", async (req, res, next) => {
+  try {
+    const id = Array.isArray(req.params["id"]) ? req.params["id"][0] : req.params["id"] ?? "";
+    const images = req.body.images as Array<{ url: string; altText?: string | null }>;
+    if (!Array.isArray(images) || images.length > 20) throw new BadRequestError("Provide no more than 20 images.");
+    for (const image of images) {
+      let parsedUrl: URL;
+      try { parsedUrl = new URL(image.url); } catch { throw new BadRequestError("Enter a valid image URL."); }
+      if (parsedUrl.protocol !== "https:") throw new BadRequestError("Product image URLs must use HTTPS.");
+    }
+    const product = await prisma.product.findUnique({ where: { id }, select: { id: true } });
+    if (!product) throw new NotFoundError("Product");
+    const saved = await prisma.$transaction(async (tx) => {
+      await tx.productImage.deleteMany({ where: { productId: id } });
+      if (images.length) await tx.productImage.createMany({ data: images.map((image, sortOrder) => ({ productId: id, url: image.url, altText: image.altText ?? null, sortOrder })) });
+      return tx.productImage.findMany({ where: { productId: id }, orderBy: { sortOrder: "asc" } });
+    });
+    res.json({ success: true, data: { images: saved } });
+  } catch (err) { next(err); }
 });
 
 // DELETE /api/admin/products/:id
@@ -231,9 +286,13 @@ router.post("/:id/inventory-adjust", async (req, res, next) => {
   try {
     const id = Array.isArray(req.params["id"]) ? req.params["id"][0] : req.params["id"] ?? "";
     const { quantity, reason } = req.body as { quantity: number; reason: string };
+    if (!Number.isInteger(quantity) || quantity === 0 || typeof reason !== "string" || reason.trim().length < 3) {
+      throw new BadRequestError("Provide a non-zero whole-number adjustment and a reason.");
+    }
 
     const product = await prisma.product.findUnique({ where: { id } });
     if (!product) throw new NotFoundError("Product");
+    if (product.stock + quantity < 0) throw new BadRequestError("Inventory cannot be reduced below zero.");
 
     const adminUserId = (req as unknown as { user?: { userId?: string } }).user?.userId ?? null;
 

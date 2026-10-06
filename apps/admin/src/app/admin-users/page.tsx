@@ -1,0 +1,18 @@
+"use client";
+
+import { FormEvent, useEffect, useState } from "react";
+import AdminLayout from "@/components/AdminLayout";
+import { inviteAdmin, loadAdminUsers, updateAdminUser, type AdminUser } from "@/store/adminSlice";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+
+export default function AdminUsersPage() {
+  const dispatch = useAppDispatch();
+  const { items, isLoading, error } = useAppSelector((state) => state.admin.adminUsers);
+  const [mutationError, setMutationError] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteMessage, setInviteMessage] = useState("");
+  useEffect(() => { void dispatch(loadAdminUsers()); }, [dispatch]);
+  async function update(user: AdminUser, data: { role?: AdminUser["role"]; isActive?: boolean }) { setMutationError(""); const result = await dispatch(updateAdminUser({ id: user.id, data })); if (updateAdminUser.rejected.match(result)) setMutationError(result.payload as string ?? "Could not update user."); }
+  async function addAdmin(event: FormEvent<HTMLFormElement>) { event.preventDefault(); setMutationError(""); setInviteMessage(""); const result = await dispatch(inviteAdmin(inviteEmail)); if (inviteAdmin.fulfilled.match(result)) { setInviteEmail(""); setInviteMessage("Verified customer promoted to admin."); } else setMutationError(result.payload as string ?? "Could not grant admin access."); }
+  return <AdminLayout title="Admin access" subtitle="Roles & permissions"><p className="mb-5 text-sm text-slate-600">Only super-admin accounts can view this page and change access. Promote only verified customer accounts after confirming their identity.</p>{(error || mutationError) && <p role="alert" className="mb-4 text-sm text-red-700">{mutationError || error}</p>}<form onSubmit={addAdmin} className="mb-5 flex flex-col gap-3 border bg-white p-4 sm:flex-row"><label className="flex-1 text-sm font-medium">Promote verified customer<input required type="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} placeholder="customer@example.com" className="mt-1 h-10 w-full border px-3" /></label><button className="h-10 self-end bg-emerald-700 px-4 text-sm font-semibold text-white">Grant admin access</button>{inviteMessage && <span role="status" className="self-center text-sm text-emerald-700">{inviteMessage}</span>}</form><section className="overflow-x-auto border bg-white"><table className="w-full min-w-[700px] text-left text-sm"><thead className="border-b bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="p-4">Admin</th><th className="p-4">Email verified</th><th className="p-4">Role</th><th className="p-4">Access</th></tr></thead><tbody className="divide-y">{items.map((user) => <tr key={user.id}><td className="p-4"><strong className="block">{user.name}</strong><span className="text-xs text-slate-500">{user.email}</span></td><td className="p-4">{user.emailVerified ? "Verified" : "Not verified"}</td><td className="p-4"><select value={user.role} onChange={(event) => void update(user, { role: event.target.value as AdminUser["role"] })} className="h-9 border px-2"><option value="ADMIN">Admin</option><option value="SUPER_ADMIN">Super admin</option></select></td><td className="p-4"><button type="button" onClick={() => void update(user, { isActive: !user.isActive })} className="font-semibold text-emerald-700">{user.isActive ? "Deactivate" : "Activate"}</button></td></tr>)}</tbody></table>{!isLoading && !items.length && <p className="py-12 text-center text-sm text-slate-500">No admin users found, or this account lacks super-admin access.</p>}</section></AdminLayout>;
+}

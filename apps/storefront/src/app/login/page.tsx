@@ -50,7 +50,8 @@ export default function LoginPage() {
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
           <Button type="submit" size="lg" className="w-full bg-brand-600 text-white hover:bg-brand-700" isLoading={isLoading}>Sign in <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" /></Button>
         </form>
-        <p className="mt-6 text-center text-sm text-muted-foreground">New here? <Link href="/register" className="font-semibold text-brand-700 hover:text-brand-900">Create an account</Link></p>
+        <p className="mt-4 text-center text-sm"><Link href="/forgot-password" className="font-semibold text-brand-700 hover:text-brand-900">Forgot password?</Link></p>
+        <p className="mt-4 text-center text-sm text-muted-foreground">New here? <Link href="/register" className="font-semibold text-brand-700 hover:text-brand-900">Create an account</Link></p>
       </div>
     </main>
   );

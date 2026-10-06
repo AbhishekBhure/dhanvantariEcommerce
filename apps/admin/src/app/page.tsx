@@ -30,6 +30,7 @@ const money = (value: number) =>
     currency: "INR",
     maximumFractionDigits: 0,
   }).format(value);
+const storefrontUrl = process.env["NEXT_PUBLIC_STOREFRONT_URL"] ?? "http://localhost:3000";
 
 export default function AdminHomePage() {
   const router = useRouter();
@@ -79,7 +80,7 @@ export default function AdminHomePage() {
       subtitle="Dhanvantari Administration"
       actions={
         <a
-          href="http://localhost:3000"
+          href={storefrontUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-300 rounded-xl hover:bg-emerald-100 transition-colors shadow-xs"

@@ -8,6 +8,8 @@ import adminCouponRoutes from "./coupon.admin.routes.js";
 import adminBannerRoutes from "./banner.admin.routes.js";
 import adminDashboardRoutes from "./dashboard.admin.routes.js";
 import adminCmsRoutes from "./cms.admin.routes.js";
+import adminUserRoutes from "./admin-user.admin.routes.js";
+import adminReviewRoutes from "./review.admin.routes.js";
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -22,5 +24,7 @@ router.use("/customers", adminCustomerRoutes);
 router.use("/coupons", adminCouponRoutes);
 router.use("/banners", adminBannerRoutes);
 router.use("/cms", adminCmsRoutes);
+router.use("/users", adminUserRoutes);
+router.use("/reviews", adminReviewRoutes);
 
 export default router;

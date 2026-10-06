@@ -8,6 +8,7 @@ import {
 } from "../middleware/errorHandler.js";
 import { VerifyPaymentInput } from "@dhanvantari/validation";
 import { OrderStatus, PaymentStatus } from "@dhanvantari/shared-types";
+import { sendOrderConfirmationEmail, sendPaymentFailureEmail, sendPaymentSuccessEmail } from "../lib/email.js";
 
 // POST /api/payment/verify
 export async function verifyPayment(
@@ -45,7 +46,7 @@ export async function verifyPayment(
 
     const order = await prisma.order.findFirst({
       where: { id: orderId, userId: req.user!.userId },
-      include: { payment: true },
+      include: { payment: true, user: { select: { email: true, name: true } }, items: true },
     });
     if (!order) throw new NotFoundError("Order");
 
@@ -84,6 +85,27 @@ export async function verifyPayment(
             },
           },
         },
+      }),
+    ]);
+
+    await Promise.all([
+      sendPaymentSuccessEmail(order.user.email, { customerName: order.user.name, orderNumber: order.orderNumber, orderId: order.id, amount: Number(order.total), paymentId: razorpayPaymentId }),
+      sendOrderConfirmationEmail(order.user.email, {
+        orderNumber: order.orderNumber,
+        orderId: order.id,
+        customerName: order.addressName,
+        items: order.items.map((item) => ({ productName: item.productName, quantity: item.quantity, price: Number(item.price), variantName: item.variantName })),
+        subtotal: Number(order.subtotal),
+        couponDiscount: Number(order.couponDiscount),
+        shippingCharge: Number(order.shippingCharge),
+        total: Number(order.total),
+        paymentMethod: "RAZORPAY",
+        addressName: order.addressName,
+        addressLine1: order.addressLine1,
+        addressLine2: order.addressLine2,
+        addressCity: order.addressCity,
+        addressState: order.addressState,
+        addressPincode: order.addressPincode,
       }),
     ]);
 
@@ -129,7 +151,7 @@ export async function handleWebhook(
 
       const payment = await prisma.payment.findFirst({
         where: { gatewayOrderId: razorpayOrderId },
-        include: { order: true },
+        include: { order: { include: { user: { select: { email: true, name: true } }, items: true } } },
       });
 
       if (payment && payment.order.status === OrderStatus.PENDING_PAYMENT) {
@@ -156,6 +178,17 @@ export async function handleWebhook(
             },
           }),
         ]);
+        await Promise.all([
+          sendPaymentSuccessEmail(payment.order.user.email, { customerName: payment.order.user.name, orderNumber: payment.order.orderNumber, orderId: payment.order.id, amount: Number(payment.order.total), paymentId: gatewayPaymentId }),
+          sendOrderConfirmationEmail(payment.order.user.email, {
+            orderNumber: payment.order.orderNumber,
+            orderId: payment.order.id,
+            customerName: payment.order.addressName,
+            items: payment.order.items.map((item) => ({ productName: item.productName, quantity: item.quantity, price: Number(item.price), variantName: item.variantName })),
+            subtotal: Number(payment.order.subtotal), couponDiscount: Number(payment.order.couponDiscount), shippingCharge: Number(payment.order.shippingCharge), total: Number(payment.order.total), paymentMethod: "RAZORPAY",
+            addressName: payment.order.addressName, addressLine1: payment.order.addressLine1, addressLine2: payment.order.addressLine2, addressCity: payment.order.addressCity, addressState: payment.order.addressState, addressPincode: payment.order.addressPincode,
+          }),
+        ]);
       }
     }
 
@@ -163,6 +196,7 @@ export async function handleWebhook(
       const { order_id: razorpayOrderId } = event.payload.payment.entity;
       const payment = await prisma.payment.findFirst({
         where: { gatewayOrderId: razorpayOrderId },
+        include: { order: { include: { user: { select: { email: true, name: true } } } } },
       });
       if (payment) {
         await prisma.$transaction([
@@ -187,6 +221,7 @@ export async function handleWebhook(
             },
           }),
         ]);
+        await sendPaymentFailureEmail(payment.order.user.email, { customerName: payment.order.user.name, orderNumber: payment.order.orderNumber, orderId: payment.order.id, amount: Number(payment.amount) });
       }
     }
 

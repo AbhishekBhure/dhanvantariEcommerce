@@ -11,8 +11,10 @@ export default function CustomersPage() {
   const customers = useAppSelector((state) => state.admin.customers.items);
   const [error, setError] = useState("");
   const [updatingId, setUpdatingId] = useState("");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
 
-  useEffect(() => { void dispatch(loadCustomers()); }, [dispatch]);
+  useEffect(() => { const timer = window.setTimeout(() => void dispatch(loadCustomers({ page, pageSize: 20, search: search.trim() || undefined })), 250); return () => window.clearTimeout(timer); }, [dispatch, page, search]);
 
   async function handleToggleCustomer(customer: Customer) {
     setUpdatingId(customer.id);
@@ -24,6 +26,7 @@ export default function CustomersPage() {
   return (
     <AdminLayout title="Registered Customers" subtitle="User Directory & Accounts">
       {error && <p className="mb-4 text-xs font-semibold text-red-600">{error}</p>}
+      <div className="mb-4 flex gap-3"><input aria-label="Search customers" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Search name or email" className="h-10 w-full max-w-md border bg-white px-3 text-sm"/><span className="self-center text-xs text-slate-500">Page {page} · {customers.length} results</span></div>
       <div className="overflow-x-auto border bg-white rounded-2xl shadow-xs">
         <table className="w-full min-w-[760px] text-left text-sm">
           <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wider text-slate-500 border-b">
@@ -67,6 +70,7 @@ export default function CustomersPage() {
         </table>
         {!customers.length && <p className="py-16 text-center text-slate-400 text-sm">No customers registered yet.</p>}
       </div>
+      <div className="mt-4 flex justify-end gap-2"><button type="button" disabled={page === 1} onClick={() => setPage((current) => Math.max(1, current - 1))} className="h-9 border bg-white px-3 text-sm disabled:opacity-40">Previous</button><button type="button" disabled={customers.length < 20} onClick={() => setPage((current) => current + 1)} className="h-9 border bg-white px-3 text-sm disabled:opacity-40">Next</button></div>
     </AdminLayout>
   );
 }

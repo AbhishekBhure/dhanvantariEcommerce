@@ -83,6 +83,7 @@ model User {
   isActive              Boolean   @default(true)
   emailVerified         Boolean   @default(false)
   emailVerificationToken String?
+  emailVerificationExpiry DateTime?
   passwordResetToken    String?
   passwordResetExpiry   DateTime?
   lastLoginAt           DateTime?

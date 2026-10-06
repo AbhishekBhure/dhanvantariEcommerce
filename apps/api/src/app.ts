@@ -21,6 +21,8 @@ import bannerRoutes from "./routes/banner.routes.js";
 import pageRoutes from "./routes/page.routes.js";
 import postRoutes from "./routes/post.routes.js";
 import settingRoutes from "./routes/setting.routes.js";
+import wishlistRoutes from "./routes/wishlist.routes.js";
+import reviewRoutes from "./routes/review.routes.js";
 import adminRoutes from "./routes/admin/index.routes.js";
 
 // ─── App Setup ────────────────────────────────────────────────
@@ -143,6 +145,8 @@ app.use("/api/banners", bannerRoutes);
 app.use("/api/pages", pageRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/settings", settingRoutes);
+app.use("/api/wishlist", wishlistRoutes);
+app.use("/api/reviews", reviewRoutes);
 app.use("/api/admin", adminRoutes);
 
 // ─── Error Handling ───────────────────────────────────────────

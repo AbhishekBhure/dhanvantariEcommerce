@@ -26,7 +26,7 @@ export default function RegisterPage() {
     try {
       const result = await dispatch(registerUser({ ...form, phone: form.phone || undefined }));
       if (registerUser.rejected.match(result)) throw new Error(result.payload as string ?? "Unable to create your account.");
-      router.push("/cart");
+      router.push("/verify-email-sent");
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Unable to create your account. Please try again.");
     } finally {
