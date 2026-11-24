@@ -2,6 +2,7 @@ import crypto from "crypto";
 import prisma from "./prisma.js";
 import { AppError, BadRequestError } from "../middleware/errorHandler.js";
 import { hashOtp } from "./phoneOtpCrypto.js";
+import logger from "./logger.js";
 
 export type PhoneOtpPurpose = "REGISTRATION" | "PASSWORD_RESET";
 
@@ -36,10 +37,25 @@ async function sendSms(phone: string, code: string): Promise<void> {
         signal: AbortSignal.timeout(10000),
       },
     );
-  } catch {
+  } catch (error) {
+    logger.warn(
+      { errorType: error instanceof Error ? error.name : "UnknownError" },
+      "Twilio SMS request failed before receiving a response",
+    );
     throw new AppError("Could not send the verification SMS. Please try again.", 502);
   }
   if (!response.ok) {
+    let twilioErrorCode: number | undefined;
+    try {
+      const payload = (await response.json()) as { code?: unknown };
+      if (typeof payload.code === "number") twilioErrorCode = payload.code;
+    } catch {
+      // Twilio's response body is diagnostic only; the HTTP status is still logged.
+    }
+    logger.warn(
+      { statusCode: response.status, twilioErrorCode },
+      "Twilio rejected phone verification SMS",
+    );
     throw new AppError("Could not send the verification SMS. Please try again.", 502);
   }
 }
