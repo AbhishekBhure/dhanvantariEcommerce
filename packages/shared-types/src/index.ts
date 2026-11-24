@@ -85,7 +85,7 @@ export enum ShipmentStatus {
 
 export interface UserPublic {
   id: string;
-  email: string;
+  email: Nullable<string>;
   name: string;
   phone: Nullable<string>;
   role: UserRole;
@@ -94,7 +94,7 @@ export interface UserPublic {
 
 export interface AuthTokenPayload {
   userId: string;
-  email: string;
+  email: Nullable<string>;
   role: UserRole;
 }
 

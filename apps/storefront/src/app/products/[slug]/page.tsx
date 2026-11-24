@@ -21,9 +21,24 @@ async function getProduct(slug: string): Promise<Product | null> {
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const product = await getProduct((await params).slug);
+  const title = product?.metaTitle ?? product?.name ?? "Product";
+  const description = product?.metaDescription ?? product?.shortDescription ?? undefined;
+  const image = product?.images[0]?.url;
   return {
-    title: product?.metaTitle ?? product?.name ?? "Product",
-    description: product?.metaDescription ?? product?.shortDescription ?? undefined,
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: "website",
+      ...(image ? { images: [{ url: image, alt: product?.name }] } : {}),
+    },
+    twitter: {
+      card: image ? "summary_large_image" : "summary",
+      title,
+      description,
+      ...(image ? { images: [image] } : {}),
+    },
   };
 }
 

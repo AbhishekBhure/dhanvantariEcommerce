@@ -1,26 +1,16 @@
 import { Request, Response, NextFunction } from "express";
 import { nanoid } from "nanoid";
-import Razorpay from "razorpay";
 import prisma from "../lib/prisma.js";
 import {
   BadRequestError,
   NotFoundError,
-  AppError,
 } from "../middleware/errorHandler.js";
 import { CreateOrderInput } from "@dhanvantari/validation";
-import { OrderStatus, PaymentMethod } from "@dhanvantari/shared-types";
+import { OrderStatus } from "@dhanvantari/shared-types";
 import { sendOrderConfirmationEmail } from "../lib/email.js";
 
 const SHIPPING_THRESHOLD = 499;
 const SHIPPING_CHARGE = 49;
-
-function isDummyRazorpayEnabled(): boolean {
-  const keyId = process.env["RAZORPAY_KEY_ID"] ?? "";
-  const keySecret = process.env["RAZORPAY_KEY_SECRET"] ?? "";
-  const forceDummy = process.env["USE_DUMMY_PAYMENT"] === "true";
-
-  return forceDummy || !keyId || !keySecret || keyId.includes("placeholder") || keySecret.includes("placeholder");
-}
 
 function generateOrderNumber(): string {
   return `DHV-${Date.now()}-${nanoid(6).toUpperCase()}`;
@@ -175,7 +165,7 @@ export async function createOrder(
           userId,
           addressId,
           status: OrderStatus.PENDING_PAYMENT,
-          paymentMethod: paymentMethod as PaymentMethod,
+          paymentMethod,
           subtotal,
           discount: 0,
           couponDiscount,
@@ -215,7 +205,7 @@ export async function createOrder(
       await tx.payment.create({
         data: {
           orderId: newOrder.id,
-          method: paymentMethod as PaymentMethod,
+          method: paymentMethod,
           status: "PENDING",
           amount: total,
           currency: "INR",
@@ -239,67 +229,37 @@ export async function createOrder(
       return newOrder;
     });
 
-    // For Razorpay — create gateway order
+    /*
+    // Temporarily paused while checkout supports COD only.
     if (paymentMethod === "RAZORPAY") {
-      try {
-        if (isDummyRazorpayEnabled()) {
-          const dummyOrderId = `dummy_order_${order.orderNumber}`;
-
-          await prisma.payment.update({
-            where: { orderId: order.id },
-            data: { gatewayOrderId: dummyOrderId },
-          });
-
-          res.status(201).json({
-            success: true,
-            message: "Order created with dummy Razorpay mode",
-            data: {
-              orderId: order.id,
-              orderNumber: order.orderNumber,
-              razorpayOrderId: dummyOrderId,
-              amount: Math.round(total * 100),
-              currency: "INR",
-              keyId: "rzp_test_dummy",
-              dummyPayment: true,
-            },
-          });
-          return;
-        }
-
-        const razorpay = new Razorpay({
-          key_id: process.env["RAZORPAY_KEY_ID"] ?? "",
-          key_secret: process.env["RAZORPAY_KEY_SECRET"] ?? "",
-        });
-
-        const razorpayOrder = await razorpay.orders.create({
-          amount: Math.round(total * 100), // paise
+      const razorpay = new Razorpay({
+        key_id: process.env["RAZORPAY_KEY_ID"] ?? "",
+        key_secret: process.env["RAZORPAY_KEY_SECRET"] ?? "",
+      });
+      const razorpayOrder = await razorpay.orders.create({
+        amount: Math.round(total * 100),
+        currency: "INR",
+        receipt: order.orderNumber,
+      });
+      await prisma.payment.update({
+        where: { orderId: order.id },
+        data: { gatewayOrderId: razorpayOrder.id },
+      });
+      res.status(201).json({
+        success: true,
+        message: "Order created",
+        data: {
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          razorpayOrderId: razorpayOrder.id,
+          amount: Math.round(total * 100),
           currency: "INR",
-          receipt: order.orderNumber,
-        });
-
-        await prisma.payment.update({
-          where: { orderId: order.id },
-          data: { gatewayOrderId: razorpayOrder.id },
-        });
-
-        res.status(201).json({
-          success: true,
-          message: "Order created",
-          data: {
-            orderId: order.id,
-            orderNumber: order.orderNumber,
-            razorpayOrderId: razorpayOrder.id,
-            amount: Math.round(total * 100),
-            currency: "INR",
-            keyId: process.env["RAZORPAY_KEY_ID"],
-          },
-        });
-        return;
-      } catch {
-        // Rollback stock and order if Razorpay fails
-        throw new AppError("Payment gateway error. Please try again.", 502);
-      }
+          keyId: process.env["RAZORPAY_KEY_ID"],
+        },
+      });
+      return;
     }
+    */
 
     // COD order
     await prisma.order.update({
@@ -313,7 +273,7 @@ export async function createOrder(
     });
 
     const customer = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
-    if (customer) {
+    if (customer?.email) {
       await sendOrderConfirmationEmail(customer.email, {
         orderNumber: order.orderNumber,
         orderId: order.id,

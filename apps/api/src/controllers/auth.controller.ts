@@ -1,74 +1,20 @@
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { Request, Response, NextFunction } from "express";
 import prisma from "../lib/prisma.js";
 import {
-  AppError,
   BadRequestError,
   ConflictError,
   UnauthorizedError,
   NotFoundError,
 } from "../middleware/errorHandler.js";
 import { AuthTokenPayload, UserRole } from "@dhanvantari/shared-types";
-import { sendEmailVerificationEmail, sendPasswordChangedEmail, sendPasswordResetEmail, sendWelcomeEmail } from "../lib/email.js";
+import { sendPasswordChangedEmail, sendPasswordResetEmail, sendWelcomeEmail } from "../lib/email.js";
+import { issuePhoneOtp } from "../lib/phoneOtp.js";
+import { mergeGuestCart } from "../lib/mergeGuestCart.js";
+import { COOKIE_OPTIONS, signToken } from "../lib/authSession.js";
 
 const STOREFRONT_URL = process.env["STOREFRONT_URL"]?.split(",").map((url) => url.trim()).find((url) => url.startsWith("https://")) ?? process.env["STOREFRONT_URL"]?.split(",")[0]?.trim() ?? "http://localhost:3000";
-
-const COOKIE_OPTIONS = {
-  httpOnly: true,
-  secure: process.env["NODE_ENV"] === "production",
-  sameSite: process.env["NODE_ENV"] === "production" ? ("none" as const) : ("lax" as const),
-  path: "/",
-};
-
-function signToken(payload: AuthTokenPayload): string {
-  const secret = process.env["JWT_SECRET"];
-  if (!secret) throw new AppError("JWT_SECRET not configured", 500);
-  const expiresIn = (process.env["JWT_EXPIRES_IN"] ?? "7d") as string;
-  return jwt.sign(payload, secret, { expiresIn } as jwt.SignOptions);
-}
-
-async function mergeGuestCart(userId: string, sessionId: string | undefined): Promise<void> {
-  const normalizedSessionId = sessionId?.trim();
-  if (!normalizedSessionId) return;
-
-  await prisma.$transaction(async (tx) => {
-    const guestCart = await tx.cart.findUnique({
-      where: { sessionId: normalizedSessionId },
-      include: { items: true },
-    });
-    if (!guestCart || guestCart.items.length === 0) return;
-
-    const userCart = await tx.cart.findUnique({ where: { userId }, include: { items: true } });
-    if (!userCart) {
-      await tx.cart.update({
-        where: { id: guestCart.id },
-        data: { userId, sessionId: null },
-      });
-      return;
-    }
-
-    for (const guestItem of guestCart.items) {
-      const existingItem = userCart.items.find(
-        (item) => item.productId === guestItem.productId && item.variantId === guestItem.variantId,
-      );
-      if (existingItem) {
-        await tx.cartItem.update({
-          where: { id: existingItem.id },
-          data: { quantity: Math.min(10, existingItem.quantity + guestItem.quantity) },
-        });
-      } else {
-        await tx.cartItem.update({
-          where: { id: guestItem.id },
-          data: { cartId: userCart.id },
-        });
-      }
-    }
-
-    await tx.cart.delete({ where: { id: guestCart.id } });
-  });
-}
 
 // POST /api/auth/register
 export async function register(
@@ -79,33 +25,40 @@ export async function register(
   try {
     const { name, email, password, phone } = req.body as {
       name: string;
-      email: string;
+      email?: string;
       password: string;
-      phone?: string;
+      phone: string;
     };
 
-    const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) throw new ConflictError("An account with this email already exists");
+    const normalizedEmail = email?.trim().toLowerCase() || null;
+    const existingPhone = await prisma.user.findUnique({ where: { phone } });
+    if (existingPhone) throw new ConflictError("An account with this phone number already exists");
+    if (normalizedEmail) {
+      const existingEmail = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+      if (existingEmail) throw new ConflictError("An account with this email already exists");
+    }
 
     const passwordHash = await bcrypt.hash(password, 12);
-    const verificationToken = crypto.randomBytes(32).toString("hex");
     const user = await prisma.user.create({
       data: {
         name,
-        email: email.toLowerCase(),
+        email: normalizedEmail,
         passwordHash,
-        phone: phone ?? null,
-        emailVerificationToken: verificationToken,
-        emailVerificationExpiry: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        phone,
       },
-      select: { id: true, email: true, name: true, role: true },
+      select: { id: true, email: true, name: true, phone: true, role: true, createdAt: true },
     });
-    await sendEmailVerificationEmail(user.email, user.name, `${STOREFRONT_URL}/verify-email?token=${verificationToken}`);
+    try {
+      await issuePhoneOtp(user.id, phone, "REGISTRATION");
+    } catch (error) {
+      await prisma.user.delete({ where: { id: user.id } });
+      throw error;
+    }
 
     res.status(201).json({
       success: true,
-      message: "Account created. Check your email to verify your account before signing in.",
-      data: { user: { ...user, emailVerified: false } },
+      message: "Account created. Enter the 4-digit code sent to your phone.",
+      data: { user },
     });
   } catch (err) {
     next(err);
@@ -119,9 +72,13 @@ export async function login(
   next: NextFunction
 ): Promise<void> {
   try {
-    const { email, password } = req.body as { email: string; password: string };
+    const { email, phone, password } = req.body as { email?: string; phone?: string; password: string };
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = phone
+      ? await prisma.user.findUnique({ where: { phone } })
+      : email
+        ? await prisma.user.findUnique({ where: { email: email.toLowerCase() } })
+        : null;
     // Use constant-time comparison to prevent timing attacks
     const dummyHash = "$2a$12$invalidhashinvalidhashinvalidhashinvalidhashinvalidhas";
     const isMatch = user?.passwordHash
@@ -129,10 +86,13 @@ export async function login(
       : await bcrypt.compare(password, dummyHash).then(() => false);
 
     if (!user || !isMatch) {
-      throw new UnauthorizedError("Invalid email or password");
+      throw new UnauthorizedError("Invalid phone number or password");
     }
 
-    if (!user.emailVerified) {
+    if (phone && !user.phoneVerified) {
+      throw new UnauthorizedError("Please verify your phone number before signing in.");
+    }
+    if (email && !user.emailVerified) {
       throw new UnauthorizedError("Please verify your email before signing in.");
     }
 
@@ -167,7 +127,9 @@ export async function login(
           id: user.id,
           email: user.email,
           name: user.name,
+          phone: user.phone,
           role: user.role,
+          createdAt: user.createdAt,
         },
       },
     });
@@ -188,7 +150,7 @@ export async function verifyEmail(req: Request, res: Response, next: NextFunctio
       where: { id: user.id },
       data: { emailVerified: true, emailVerificationToken: null, emailVerificationExpiry: null },
     });
-    await sendWelcomeEmail(user.email, user.name);
+    if (user.email) await sendWelcomeEmail(user.email, user.name);
     res.json({ success: true, message: "Email verified. You can now sign in." });
   } catch (err) { next(err); }
 }
@@ -198,7 +160,7 @@ export async function forgotPassword(req: Request, res: Response, next: NextFunc
   try {
     const { email } = req.body as { email: string };
     const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
-    if (user?.passwordHash && user.emailVerified) {
+    if (user?.passwordHash && user.email && user.emailVerified) {
       const token = crypto.randomBytes(32).toString("hex");
       await prisma.user.update({ where: { id: user.id }, data: { passwordResetToken: token, passwordResetExpiry: new Date(Date.now() + 30 * 60 * 1000) } });
       await sendPasswordResetEmail(user.email, { name: user.name, resetUrl: `${STOREFRONT_URL}/reset-password?token=${token}` });
@@ -215,7 +177,7 @@ export async function resetPassword(req: Request, res: Response, next: NextFunct
     if (!user) throw new BadRequestError("Password reset link is invalid or expired.");
     const passwordHash = await bcrypt.hash(password, 12);
     await prisma.user.update({ where: { id: user.id }, data: { passwordHash, passwordResetToken: null, passwordResetExpiry: null } });
-    await sendPasswordChangedEmail(user.email, user.name);
+    if (user.email) await sendPasswordChangedEmail(user.email, user.name);
     res.json({ success: true, message: "Password updated. You can now sign in." });
   } catch (err) { next(err); }
 }

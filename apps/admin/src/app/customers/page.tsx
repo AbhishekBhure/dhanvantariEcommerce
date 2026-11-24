@@ -44,7 +44,7 @@ export default function CustomersPage() {
               <tr key={customer.id} className="hover:bg-slate-50/80 transition-colors">
                 <td className="px-6 py-4">
                   <strong className="block text-slate-900">{customer.name.replace("[DEMO] ", "")}</strong>
-                  <span className="text-xs text-slate-500">{customer.email}</span>
+                  <span className="text-xs text-slate-500">{customer.email ?? "No email provided"}</span>
                 </td>
                 <td className="px-6 py-4 text-xs text-slate-600">{customer.phone ?? "—"}</td>
                 <td className="px-6 py-4 text-xs font-semibold text-slate-700">{customer._count.orders}</td>

@@ -14,8 +14,8 @@ const initialState: AuthState = {
   isLoading: true, // true on init — waiting for auth check
 };
 
-type Credentials = { email: string; password: string };
-type RegisterInput = { name: string; email: string; password: string; phone?: string };
+type Credentials = { phone: string; password: string };
+type RegisterInput = { name: string; email?: string; password: string; phone: string };
 type UserResponse = { data: { user: UserPublic } };
 const getMessage = (error: unknown, fallback: string) => error instanceof ApiError ? error.message : fallback;
 const sessionHeaders = () => {
@@ -35,6 +35,14 @@ export const loginUser = createAsyncThunk("auth/loginUser", async (credentials: 
 export const registerUser = createAsyncThunk("auth/registerUser", async (input: RegisterInput, { rejectWithValue }) => {
   try { return (await api.post<UserResponse>("/auth/register", input, { headers: sessionHeaders() })).data.user; }
   catch (error) { return rejectWithValue(getMessage(error, "Unable to create account.")); }
+});
+export const resendRegistrationOtp = createAsyncThunk("auth/resendRegistrationOtp", async (phone: string, { rejectWithValue }) => {
+  try { return await api.post("/auth/phone-otp/register/send", { phone }); }
+  catch (error) { return rejectWithValue(getMessage(error, "Could not resend the verification code.")); }
+});
+export const verifyRegistrationOtp = createAsyncThunk("auth/verifyRegistrationOtp", async (input: { phone: string; code: string }, { rejectWithValue }) => {
+  try { return (await api.post<UserResponse>("/auth/phone-otp/register/verify", input, { headers: sessionHeaders() })).data.user; }
+  catch (error) { return rejectWithValue(getMessage(error, "Could not verify your phone number.")); }
 });
 export const logoutUser = createAsyncThunk("auth/logoutUser", async () => { await api.post("/auth/logout"); });
 
@@ -61,7 +69,7 @@ const authSlice = createSlice({
     builder.addCase(loadCurrentUser.fulfilled, (state, action) => { state.user = action.payload; state.isAuthenticated = true; state.isLoading = false; });
     builder.addCase(loadCurrentUser.rejected, (state) => { state.user = null; state.isAuthenticated = false; state.isLoading = false; });
     builder.addCase(loginUser.fulfilled, (state, action) => { state.user = action.payload; state.isAuthenticated = true; state.isLoading = false; });
-    builder.addCase(registerUser.fulfilled, (state, action) => { state.user = action.payload; state.isAuthenticated = true; state.isLoading = false; });
+    builder.addCase(verifyRegistrationOtp.fulfilled, (state, action) => { state.user = action.payload; state.isAuthenticated = true; state.isLoading = false; });
     builder.addCase(logoutUser.fulfilled, (state) => { state.user = null; state.isAuthenticated = false; state.isLoading = false; });
   },
 });

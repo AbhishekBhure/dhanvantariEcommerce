@@ -132,6 +132,15 @@ export async function updateProfile(
   try {
     const userId = req.user!.userId;
     const { name, phone } = req.body as { name?: string; phone?: string | null };
+    if (phone !== undefined) {
+      const currentUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { phone: true },
+      });
+      if (phone !== currentUser?.phone) {
+        throw new BadRequestError("The verified primary phone number cannot be changed here.");
+      }
+    }
 
     const user = await prisma.user.update({
       where: { id: userId },

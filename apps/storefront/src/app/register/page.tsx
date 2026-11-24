@@ -1,10 +1,10 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Leaf } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { registerUser } from "@/store/authSlice";
+import { registerUser, resendRegistrationOtp, verifyRegistrationOtp } from "@/store/authSlice";
 import { useAppDispatch } from "@/store/hooks";
 import { Button } from "@/components/ui/button";
 
@@ -12,8 +12,16 @@ export default function RegisterPage() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const [form, setForm] = useState({ name: "", email: "", phone: "", password: "" });
+  const [otp, setOtp] = useState("");
+  const [awaitingOtp, setAwaitingOtp] = useState(false);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [nextPath, setNextPath] = useState("");
+
+  useEffect(() => {
+    setNextPath(new URLSearchParams(window.location.search).get("next") ?? "");
+  }, []);
 
   function updateField(field: keyof typeof form, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -24,15 +32,52 @@ export default function RegisterPage() {
     setError("");
     setIsLoading(true);
     try {
-      const result = await dispatch(registerUser({ ...form, phone: form.phone || undefined }));
+      const result = await dispatch(registerUser({
+        ...form,
+        email: form.email.trim() || undefined,
+      }));
       if (registerUser.rejected.match(result)) throw new Error(result.payload as string ?? "Unable to create your account.");
-      router.push("/verify-email-sent");
+      setAwaitingOtp(true);
+      setMessage("A 4-digit verification code has been sent to your phone.");
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Unable to create your account. Please try again.");
     } finally {
       setIsLoading(false);
     }
   }
+
+  async function handleVerifyOtp(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setIsLoading(true);
+    try {
+      const result = await dispatch(verifyRegistrationOtp({ phone: form.phone, code: otp }));
+      if (verifyRegistrationOtp.rejected.match(result)) throw new Error(result.payload as string ?? "Could not verify your phone number.");
+      const next = new URLSearchParams(window.location.search).get("next");
+      router.push(next?.startsWith("/") && !next.startsWith("//") ? next : "/cart");
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Could not verify your phone number.");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function handleResendOtp() {
+    setError("");
+    setMessage("");
+    setIsLoading(true);
+    try {
+      const result = await dispatch(resendRegistrationOtp(form.phone));
+      if (resendRegistrationOtp.rejected.match(result)) throw new Error(result.payload as string ?? "Could not resend the verification code.");
+      setMessage("A new verification code has been sent.");
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Could not resend the verification code.");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  const loginHref = nextPath ? `/login?next=${encodeURIComponent(nextPath)}` : "/login";
 
   return (
     <main className="section-container grid min-h-[calc(100vh-9rem)] items-center py-12 md:grid-cols-2 md:gap-20">
@@ -41,15 +86,22 @@ export default function RegisterPage() {
         <p className="text-sm font-semibold uppercase tracking-[0.18em] text-brand-700">Account</p>
         <h1 className="section-heading mt-3">Create an account</h1>
         <p className="mt-3 text-muted-foreground">Join Dhanvantari and keep your wellness essentials together.</p>
-        <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+        {!awaitingOtp ? <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+          <div><label htmlFor="phone" className="mb-2 block text-sm font-medium">Mobile number</label><input id="phone" type="tel" inputMode="numeric" autoComplete="tel" required pattern="[6-9][0-9]{9}" maxLength={10} value={form.phone} onChange={(event) => updateField("phone", event.target.value.replace(/\D/g, "").slice(0, 10))} className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>
           <div><label htmlFor="name" className="mb-2 block text-sm font-medium">Full name</label><input id="name" required minLength={2} autoComplete="name" value={form.name} onChange={(event) => updateField("name", event.target.value)} className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>
-          <div><label htmlFor="email" className="mb-2 block text-sm font-medium">Email address</label><input id="email" type="email" required autoComplete="email" value={form.email} onChange={(event) => updateField("email", event.target.value)} className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>
-          <div><label htmlFor="phone" className="mb-2 block text-sm font-medium">Phone <span className="font-normal text-muted-foreground">(optional)</span></label><input id="phone" type="tel" inputMode="numeric" autoComplete="tel" pattern="[6-9][0-9]{9}" value={form.phone} onChange={(event) => updateField("phone", event.target.value)} className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+          <div><label htmlFor="email" className="mb-2 block text-sm font-medium">Email address <span className="font-normal text-muted-foreground">(optional)</span></label><input id="email" type="email" autoComplete="email" value={form.email} onChange={(event) => updateField("email", event.target.value)} className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>
           <div><label htmlFor="password" className="mb-2 block text-sm font-medium">Password</label><input id="password" type="password" required minLength={8} autoComplete="new-password" value={form.password} onChange={(event) => updateField("password", event.target.value)} className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" /><p className="mt-1 text-xs text-muted-foreground">At least 8 characters, including one uppercase letter and one number.</p></div>
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
           <Button type="submit" size="lg" className="w-full bg-brand-600 text-white hover:bg-brand-700" isLoading={isLoading}>Create account <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" /></Button>
-        </form>
-        <p className="mt-6 text-center text-sm text-muted-foreground">Already have an account? <Link href="/login" className="font-semibold text-brand-700 hover:text-brand-900">Sign in</Link></p>
+        </form> : <form onSubmit={handleVerifyOtp} className="mt-8 space-y-4">
+          <p className="text-sm text-muted-foreground">Enter the 4-digit code sent to +91 {form.phone}.</p>
+          <div><label htmlFor="registration-otp" className="mb-2 block text-sm font-medium">Verification code</label><input id="registration-otp" required inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{4}" maxLength={4} value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 4))} className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm tracking-[0.3em] focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+          {message && <p role="status" className="text-sm text-brand-700">{message}</p>}
+          {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+          <Button type="submit" size="lg" className="w-full bg-brand-600 text-white hover:bg-brand-700" isLoading={isLoading}>Verify phone number</Button>
+          <button type="button" onClick={() => void handleResendOtp()} disabled={isLoading} className="w-full text-sm font-semibold text-brand-700 disabled:opacity-50">Resend code</button>
+        </form>}
+        {!awaitingOtp && <p className="mt-6 text-center text-sm text-muted-foreground">Already have an account? <Link href={loginHref} className="font-semibold text-brand-700 hover:text-brand-900">Sign in</Link></p>}
       </div>
     </main>
   );

@@ -24,15 +24,11 @@ type OrderResponse = {
     orderId: string;
     orderNumber: string;
     total: number;
-    amount?: number;
-    currency?: string;
-    keyId?: string;
-    razorpayOrderId?: string;
-    dummyPayment?: boolean;
   };
 };
 type CouponResult = { data: { coupon: { id: string; code: string; type: "PERCENTAGE" | "FIXED"; value: number; minimumOrder: number | null; maximumDiscount: number | null; description: string | null } } };
 
+/*
 type RazorpaySuccessResponse = {
   razorpay_order_id: string;
   razorpay_payment_id: string;
@@ -59,6 +55,7 @@ declare global {
     Razorpay?: new (options: RazorpayOptions) => RazorpayInstance;
   }
 }
+*/
 
 type AddressForm = {
   label: "HOME" | "WORK" | "OTHER";
@@ -89,6 +86,7 @@ function sessionHeaders(): HeadersInit {
   return sessionId ? { "x-session-id": sessionId } : {};
 }
 
+/*
 function loadRazorpayCheckout(): Promise<void> {
   if (typeof window === "undefined") return Promise.reject(new Error("Payment is only available in the browser."));
   if (window.Razorpay) return Promise.resolve();
@@ -107,6 +105,7 @@ function loadRazorpayCheckout(): Promise<void> {
     document.body.appendChild(script);
   });
 }
+*/
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -115,7 +114,7 @@ export default function CheckoutPage() {
   const [addressForm, setAddressForm] = useState(emptyAddress);
   const [cart, setCart] = useState<CartSummary | null>(null);
   const [showAddressForm, setShowAddressForm] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<"COD" | "RAZORPAY">("COD");
+  const paymentMethod = "COD" as const;
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -153,7 +152,7 @@ export default function CheckoutPage() {
         if (!addressResponse.data.addresses.length) setShowAddressForm(true);
       } catch (requestError) {
         if (requestError instanceof ApiError && requestError.status === 401) {
-          router.replace("/login");
+          router.replace("/login?next=%2Fcheckout");
           return;
         }
         setError(
@@ -306,6 +305,18 @@ export default function CheckoutPage() {
     }
   }
 
+  function cancelAddressEntry() {
+    setAddressForm(emptyAddress);
+    setFieldErrors({});
+    setIsPincodeValid(false);
+    setError("");
+    if (addresses.length > 0) {
+      setShowAddressForm(false);
+    } else {
+      router.push("/cart");
+    }
+  }
+
   async function placeOrder() {
     if (!selectedAddressId) {
       setError("Select or add a delivery address.");
@@ -320,6 +331,7 @@ export default function CheckoutPage() {
         couponCode: coupon?.code,
       });
 
+      /*
       if (paymentMethod === "RAZORPAY" && response.data.razorpayOrderId) {
         if (response.data.dummyPayment) {
           const mockPaymentId = `pay_dummy_${Date.now()}`;
@@ -358,6 +370,7 @@ export default function CheckoutPage() {
           });
         }
       }
+      */
 
       router.push(`/order-confirmation/${response.data.orderNumber}`);
     } catch (requestError) {
@@ -389,7 +402,6 @@ export default function CheckoutPage() {
   const couponDiscount = coupon && cart
     ? Math.min(coupon.type === "PERCENTAGE" ? cart.subtotal * coupon.value / 100 : coupon.value, coupon.maximumDiscount ?? Number.POSITIVE_INFINITY, cart.subtotal)
     : 0;
-
   if (isLoading)
     return (
       <main className="section-container py-24 text-center text-muted-foreground">
@@ -487,7 +499,7 @@ export default function CheckoutPage() {
                   htmlFor="address-name"
                   className="mb-1 block text-sm font-medium"
                 >
-                  Full name
+                  Full name <span aria-hidden="true" className="text-destructive">*</span>
                 </label>
                 <input
                   id="address-name"
@@ -502,7 +514,7 @@ export default function CheckoutPage() {
                 {fieldErrors.name && <p className="mt-1 text-xs text-destructive">{fieldErrors.name}</p>}
               </div>
               <div>
-                <label htmlFor="address-phone" className="mb-1 block text-sm font-medium">Phone</label>
+                <label htmlFor="address-phone" className="mb-1 block text-sm font-medium">Phone <span aria-hidden="true" className="text-destructive">*</span></label>
                 <PhoneField id="address-phone" value={addressForm.phone} onChange={(value) => updateAddress("phone", value)} error={fieldErrors.phone} />
               </div>
               <div>
@@ -510,7 +522,7 @@ export default function CheckoutPage() {
                   htmlFor="address-pincode"
                   className="mb-1 block text-sm font-medium"
                 >
-                  Pincode
+                  Pincode <span aria-hidden="true" className="text-destructive">*</span>
                 </label>
                 <input
                   id="address-pincode"
@@ -546,7 +558,7 @@ export default function CheckoutPage() {
                   htmlFor="address-line1"
                   className="mb-1 block text-sm font-medium"
                 >
-                  Address
+                  Address <span aria-hidden="true" className="text-destructive">*</span>
                 </label>
                 <input
                   id="address-line1"
@@ -585,7 +597,7 @@ export default function CheckoutPage() {
                   htmlFor="address-city"
                   className="mb-1 block text-sm font-medium"
                 >
-                  City
+                  City <span aria-hidden="true" className="text-destructive">*</span>
                 </label>
                 <input
                   id="address-city"
@@ -601,7 +613,7 @@ export default function CheckoutPage() {
                   htmlFor="address-state"
                   className="mb-1 block text-sm font-medium"
                 >
-                  State
+                  State <span aria-hidden="true" className="text-destructive">*</span>
                 </label>
                 <input
                   id="address-state"
@@ -612,14 +624,24 @@ export default function CheckoutPage() {
                   className="h-10 w-full rounded-lg border border-input bg-muted px-3 text-sm"
                 />
               </div>
-              <Button
-                type="submit"
-                disabled={isPincodeChecking || !isPincodeValid}
-                className="sm:col-span-2 bg-brand-600 text-white hover:bg-brand-700"
-                isLoading={isSubmitting}
-              >
-                Save address
-              </Button>
+              <div className="flex gap-3 sm:col-span-2">
+                <button
+                  type="button"
+                  onClick={cancelAddressEntry}
+                  disabled={isSubmitting}
+                  className="h-10 flex-1 rounded-lg border border-border px-4 text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <Button
+                  type="submit"
+                  disabled={isPincodeChecking || !isPincodeValid}
+                  className="flex-1 bg-brand-600 text-white hover:bg-brand-700"
+                  isLoading={isSubmitting}
+                >
+                  Save address
+                </Button>
+              </div>
             </form>
           )}
           <div className="mt-10 border-t border-border pt-8">
@@ -627,7 +649,6 @@ export default function CheckoutPage() {
             <div className="mt-4 space-y-3">
               <button
                 type="button"
-                onClick={() => setPaymentMethod("COD")}
                 className={`flex w-full items-center gap-3 border p-4 text-left text-sm ${paymentMethod === "COD" ? "border-brand-600 bg-brand-50" : "border-border bg-white"}`}
               >
                 <MapPin className="h-5 w-5 text-brand-600" aria-hidden="true" />
@@ -636,6 +657,8 @@ export default function CheckoutPage() {
                   your order arrives.
                 </span>
               </button>
+              {/* Temporarily hidden until online payments are re-enabled. */}
+              {/*
               <button
                 type="button"
                 onClick={() => setPaymentMethod("RAZORPAY")}
@@ -648,6 +671,7 @@ export default function CheckoutPage() {
                   <strong className="block">Razorpay</strong>Secure online payment.
                 </span>
               </button>
+              */}
             </div>
           </div>
           {error && (
@@ -695,9 +719,7 @@ export default function CheckoutPage() {
             isLoading={isSubmitting}
             className="mt-6 w-full bg-brand-600 text-white hover:bg-brand-700"
           >
-            {paymentMethod === "RAZORPAY"
-              ? "Pay with Razorpay"
-              : "Place COD order"}
+            Place COD order
           </Button>
         </aside>
       </div>

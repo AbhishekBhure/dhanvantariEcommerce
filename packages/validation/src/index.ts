@@ -4,7 +4,7 @@ import { z } from "zod";
 
 export const registerSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(100),
-  email: z.string().email("Invalid email address"),
+  email: z.union([z.string().email("Invalid email address"), z.literal("")]).optional().transform((value) => value || undefined),
   password: z
     .string()
     .min(8, "Password must be at least 8 characters")
@@ -12,13 +12,29 @@ export const registerSchema = z.object({
     .regex(/[0-9]/, "Password must contain at least one number"),
   phone: z
     .string()
-    .regex(/^[6-9]\d{9}$/, "Enter a valid 10-digit Indian mobile number")
-    .optional(),
+    .regex(/^[6-9]\d{9}$/, "Enter a valid 10-digit Indian mobile number"),
 });
 
 export const loginSchema = z.object({
-  email: z.string().email("Invalid email address"),
+  email: z.string().email("Invalid email address").optional(),
+  phone: z.string().regex(/^[6-9]\d{9}$/, "Enter a valid 10-digit Indian mobile number").optional(),
   password: z.string().min(1, "Password is required"),
+}).refine((data) => Boolean(data.phone || data.email), { message: "Enter your phone number or email address", path: ["phone"] });
+
+export const phoneOtpRequestSchema = z.object({
+  phone: z.string().regex(/^[6-9]\d{9}$/, "Enter a valid 10-digit Indian mobile number"),
+});
+
+export const phoneOtpVerifySchema = phoneOtpRequestSchema.extend({
+  code: z.string().regex(/^\d{4}$/, "Enter the 4-digit verification code"),
+});
+
+export const passwordResetOtpSchema = phoneOtpVerifySchema.extend({
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+    .regex(/[0-9]/, "Password must contain at least one number"),
 });
 
 export const forgotPasswordSchema = z.object({
@@ -164,7 +180,7 @@ export const applyCouponSchema = z.object({
 
 export const createOrderSchema = z.object({
   addressId: z.string().uuid("Invalid address"),
-  paymentMethod: z.enum(["RAZORPAY", "COD"]),
+  paymentMethod: z.literal("COD"),
   couponCode: z.string().max(50).optional().nullable(),
   notes: z.string().max(500).optional().nullable(),
 });
@@ -230,6 +246,20 @@ export const addShipmentSchema = z.object({
   trackingUrl: z.string().url().optional().nullable(),
   awbNumber: z.string().max(100).optional().nullable(),
   estimatedDelivery: z.string().datetime().optional().nullable(),
+});
+
+export const indiaPostBookingSchema = z.object({
+  barcode: z.string().trim().regex(/^[A-Z0-9]{13}$/, "India Post barcode must be 13 alphanumeric characters"),
+  physicalWeight: z.number().int().min(1).max(35000),
+  length: z.number().min(14).max(150),
+  breadth: z.number().min(9).max(150),
+  height: z.number().min(1).max(150),
+  shape: z.enum(["NROL", "ROLL"]).default("NROL"),
+});
+
+export const codCollectionSchema = z.object({
+  amount: z.number().positive(),
+  reference: z.string().trim().max(100).optional().nullable(),
 });
 
 // ─── Banner Schema ────────────────────────────────────────────

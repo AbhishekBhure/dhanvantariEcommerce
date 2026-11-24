@@ -88,9 +88,10 @@ export async function verifyPayment(
       }),
     ]);
 
-    await Promise.all([
-      sendPaymentSuccessEmail(order.user.email, { customerName: order.user.name, orderNumber: order.orderNumber, orderId: order.id, amount: Number(order.total), paymentId: razorpayPaymentId }),
-      sendOrderConfirmationEmail(order.user.email, {
+    if (order.user.email) {
+      await Promise.all([
+        sendPaymentSuccessEmail(order.user.email, { customerName: order.user.name, orderNumber: order.orderNumber, orderId: order.id, amount: Number(order.total), paymentId: razorpayPaymentId }),
+        sendOrderConfirmationEmail(order.user.email, {
         orderNumber: order.orderNumber,
         orderId: order.id,
         customerName: order.addressName,
@@ -106,8 +107,9 @@ export async function verifyPayment(
         addressCity: order.addressCity,
         addressState: order.addressState,
         addressPincode: order.addressPincode,
-      }),
-    ]);
+        }),
+      ]);
+    }
 
     res.json({
       success: true,
@@ -178,17 +180,19 @@ export async function handleWebhook(
             },
           }),
         ]);
-        await Promise.all([
-          sendPaymentSuccessEmail(payment.order.user.email, { customerName: payment.order.user.name, orderNumber: payment.order.orderNumber, orderId: payment.order.id, amount: Number(payment.order.total), paymentId: gatewayPaymentId }),
-          sendOrderConfirmationEmail(payment.order.user.email, {
+        if (payment.order.user.email) {
+          await Promise.all([
+            sendPaymentSuccessEmail(payment.order.user.email, { customerName: payment.order.user.name, orderNumber: payment.order.orderNumber, orderId: payment.order.id, amount: Number(payment.order.total), paymentId: gatewayPaymentId }),
+            sendOrderConfirmationEmail(payment.order.user.email, {
             orderNumber: payment.order.orderNumber,
             orderId: payment.order.id,
             customerName: payment.order.addressName,
             items: payment.order.items.map((item) => ({ productName: item.productName, quantity: item.quantity, price: Number(item.price), variantName: item.variantName })),
             subtotal: Number(payment.order.subtotal), couponDiscount: Number(payment.order.couponDiscount), shippingCharge: Number(payment.order.shippingCharge), total: Number(payment.order.total), paymentMethod: "RAZORPAY",
             addressName: payment.order.addressName, addressLine1: payment.order.addressLine1, addressLine2: payment.order.addressLine2, addressCity: payment.order.addressCity, addressState: payment.order.addressState, addressPincode: payment.order.addressPincode,
-          }),
-        ]);
+            }),
+          ]);
+        }
       }
     }
 
@@ -221,7 +225,9 @@ export async function handleWebhook(
             },
           }),
         ]);
-        await sendPaymentFailureEmail(payment.order.user.email, { customerName: payment.order.user.name, orderNumber: payment.order.orderNumber, orderId: payment.order.id, amount: Number(payment.amount) });
+        if (payment.order.user.email) {
+          await sendPaymentFailureEmail(payment.order.user.email, { customerName: payment.order.user.name, orderNumber: payment.order.orderNumber, orderId: payment.order.id, amount: Number(payment.amount) });
+        }
       }
     }
 

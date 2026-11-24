@@ -65,19 +65,34 @@ enum ShipmentStatus {
   RETURNED
 }
 
+enum IndiaPostBookingStatus {
+  NOT_BOOKED
+  BOOKING
+  BOOKED
+  UNKNOWN
+  FAILED
+}
+
 enum AddressLabel {
   HOME
   WORK
   OTHER
 }
 
+enum PhoneVerificationPurpose {
+  REGISTRATION
+  CHECKOUT
+  PASSWORD_RESET
+}
+
 // ─── User ─────────────────────────────────────────────────────
 
 model User {
   id                    String    @id @default(uuid())
-  email                 String    @unique
+  email                 String?   @unique
   name                  String
-  phone                 String?
+  phone                 String?   @unique
+  phoneVerified         Boolean   @default(false)
   passwordHash          String?
   role                  UserRole  @default(CUSTOMER)
   isActive              Boolean   @default(true)
@@ -97,8 +112,27 @@ model User {
   reviews               Review[]
   couponRedemptions     CouponRedemption[]
   auditLogs             AuditLog[]
+  phoneVerifications    PhoneVerification[]
 
   @@map("users")
+}
+
+model PhoneVerification {
+  id         String                   @id @default(uuid())
+  userId     String
+  phone      String
+  purpose    PhoneVerificationPurpose
+  codeHash   String
+  expiresAt  DateTime
+  attempts   Int                      @default(0)
+  verifiedAt DateTime?
+  consumedAt DateTime?
+  createdAt  DateTime                 @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, phone, purpose, createdAt])
+  @@map("phone_verifications")
 }
 
 // ─── Address ──────────────────────────────────────────────────
@@ -405,7 +439,7 @@ model OrderItem {
   total           Decimal  @db.Decimal(10, 2)
 
   order   Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product Product        @relation(fields: [productId], references: [id])
+  product Product       @relation(fields: [productId], references: [id])
   variant ProductVariant? @relation(fields: [variantId], references: [id])
 
   @@map("order_items")
@@ -427,19 +461,22 @@ model OrderStatusHistory {
 // ─── Payment ──────────────────────────────────────────────────
 
 model Payment {
-  id                 String        @id @default(uuid())
-  orderId            String        @unique
-  method             PaymentMethod
-  status             PaymentStatus @default(PENDING)
-  amount             Decimal       @db.Decimal(10, 2)
-  currency           String        @default("INR")
-  gatewayOrderId     String?       @unique
-  gatewayPaymentId   String?       @unique
-  gatewaySignature   String?
-  failureReason      String?
-  webhookPayload     Json?
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
+  id                     String        @id @default(uuid())
+  orderId                String        @unique
+  method                 PaymentMethod
+  status                 PaymentStatus @default(PENDING)
+  amount                 Decimal       @db.Decimal(10, 2)
+  currency               String        @default("INR")
+  gatewayOrderId         String?       @unique
+  gatewayPaymentId       String?       @unique
+  gatewaySignature       String?
+  failureReason          String?
+  codCollectedAt         DateTime?
+  codCollectedBy         String?
+  codCollectionReference String?
+  webhookPayload         Json?
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
 
   order Order @relation(fields: [orderId], references: [id])
 
@@ -449,18 +486,29 @@ model Payment {
 // ─── Shipment ─────────────────────────────────────────────────
 
 model Shipment {
-  id                String         @id @default(uuid())
-  orderId           String         @unique
-  status            ShipmentStatus @default(PENDING)
-  carrier           String?
-  trackingNumber    String?
-  trackingUrl       String?
-  awbNumber         String?
-  estimatedDelivery DateTime?
-  dispatchedAt      DateTime?
-  deliveredAt       DateTime?
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
+  id                        String                 @id @default(uuid())
+  orderId                   String                 @unique
+  status                    ShipmentStatus         @default(PENDING)
+  carrier                   String?
+  trackingNumber            String?
+  trackingUrl               String?
+  awbNumber                 String?
+  estimatedDelivery         DateTime?
+  dispatchedAt              DateTime?
+  deliveredAt               DateTime?
+  indiaPostBookingStatus    IndiaPostBookingStatus @default(NOT_BOOKED)
+  indiaPostBarcode          String?                @unique
+  indiaPostBookingReference String?
+  indiaPostTariff           Decimal?               @db.Decimal(10, 2)
+  indiaPostPhysicalWeight   Int?
+  indiaPostLength           Decimal?               @db.Decimal(10, 2)
+  indiaPostBreadth          Decimal?               @db.Decimal(10, 2)
+  indiaPostHeight           Decimal?               @db.Decimal(10, 2)
+  indiaPostShape            String?
+  indiaPostLastEvent        String?
+  indiaPostLastSyncAt       DateTime?
+  createdAt                 DateTime               @default(now())
+  updatedAt                 DateTime               @updatedAt
 
   order Order @relation(fields: [orderId], references: [id])
 

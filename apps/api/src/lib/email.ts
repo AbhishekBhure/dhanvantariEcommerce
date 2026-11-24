@@ -267,7 +267,7 @@ export async function sendOrderConfirmationEmail(
         <td style="font-size:14px;color:#333;text-align:right;padding:4px 0;">${data.shippingCharge === 0 ? '<span style="color:#27a05a;font-weight:600;">FREE</span>' : `₹${data.shippingCharge}`}</td>
       </tr>
       <tr>
-        <td style="font-size:16px;font-weight:700;color:#1a1a1a;padding:12px 0 4px;border-top:2px solid #e8e8e4;">Total Paid</td>
+        <td style="font-size:16px;font-weight:700;color:#1a1a1a;padding:12px 0 4px;border-top:2px solid #e8e8e4;">${data.paymentMethod === "COD" ? "Total Due on Delivery" : "Total Paid"}</td>
         <td style="font-size:16px;font-weight:700;color:${BRAND_GREEN};text-align:right;padding:12px 0 4px;border-top:2px solid #e8e8e4;">₹${data.total.toLocaleString("en-IN")}</td>
       </tr>
     </table>
@@ -314,7 +314,14 @@ export async function sendOrderConfirmationEmail(
 
 export async function sendPaymentSuccessEmail(
   to: string,
-  opts: { customerName: string; orderNumber: string; orderId: string; amount: number; paymentId: string }
+  opts: {
+    customerName: string;
+    orderNumber: string;
+    orderId: string;
+    amount: number;
+    paymentId: string;
+    paymentLabel?: string;
+  }
 ): Promise<void> {
   const html = baseTemplate(
     `
@@ -335,7 +342,7 @@ export async function sendPaymentSuccessEmail(
           <td style="font-size:14px;font-weight:700;color:${BRAND_GREEN};text-align:right;">₹${opts.amount.toLocaleString("en-IN")}</td>
         </tr>
         <tr>
-          <td style="font-size:13px;color:#666;padding:4px 0;">Payment ID</td>
+          <td style="font-size:13px;color:#666;padding:4px 0;">${opts.paymentLabel ?? "Payment ID"}</td>
           <td style="font-size:12px;color:#999;text-align:right;font-family:monospace;">${opts.paymentId}</td>
         </tr>
         <tr>

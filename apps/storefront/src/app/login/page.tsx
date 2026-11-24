@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Leaf } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -11,25 +11,33 @@ import { Button } from "@/components/ui/button";
 export default function LoginPage() {
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [nextPath, setNextPath] = useState("");
+
+  useEffect(() => {
+    setNextPath(new URLSearchParams(window.location.search).get("next") ?? "");
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setIsLoading(true);
     try {
-      const result = await dispatch(loginUser({ email, password }));
+      const result = await dispatch(loginUser({ phone, password }));
       if (loginUser.rejected.match(result)) throw new Error(result.payload as string ?? "Unable to sign in.");
-      router.push("/cart");
+      const next = new URLSearchParams(window.location.search).get("next");
+      router.push(next?.startsWith("/") && !next.startsWith("//") ? next : "/cart");
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Unable to sign in. Please try again.");
     } finally {
       setIsLoading(false);
     }
   }
+
+  const registerHref = nextPath ? `/register?next=${encodeURIComponent(nextPath)}` : "/register";
 
   return (
     <main className="section-container grid min-h-[calc(100vh-9rem)] items-center py-12 md:grid-cols-2 md:gap-20">
@@ -45,13 +53,13 @@ export default function LoginPage() {
         <h1 className="section-heading mt-3">Sign in</h1>
         <p className="mt-3 text-muted-foreground">Use your Dhanvantari account to continue.</p>
         <form onSubmit={handleSubmit} className="mt-8 space-y-5">
-          <div><label htmlFor="email" className="mb-2 block text-sm font-medium">Email address</label><input id="email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+          <div><label htmlFor="phone" className="mb-2 block text-sm font-medium">Mobile number</label><input id="phone" type="tel" inputMode="numeric" autoComplete="tel" required pattern="[6-9][0-9]{9}" maxLength={10} value={phone} onChange={(event) => setPhone(event.target.value.replace(/\D/g, "").slice(0, 10))} className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>
           <div><label htmlFor="password" className="mb-2 block text-sm font-medium">Password</label><input id="password" type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
           <Button type="submit" size="lg" className="w-full bg-brand-600 text-white hover:bg-brand-700" isLoading={isLoading}>Sign in <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" /></Button>
         </form>
         <p className="mt-4 text-center text-sm"><Link href="/forgot-password" className="font-semibold text-brand-700 hover:text-brand-900">Forgot password?</Link></p>
-        <p className="mt-4 text-center text-sm text-muted-foreground">New here? <Link href="/register" className="font-semibold text-brand-700 hover:text-brand-900">Create an account</Link></p>
+        <p className="mt-4 text-center text-sm text-muted-foreground">New here? <Link href={registerHref} className="font-semibold text-brand-700 hover:text-brand-900">Create an account</Link></p>
       </div>
     </main>
   );
