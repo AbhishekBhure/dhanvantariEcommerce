@@ -22,6 +22,7 @@ export default function Header() {
   const cartItems = useAppSelector((state) => state.cart.items);
   const user = useAppSelector((state) => state.auth.user);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [authReturnPath, setAuthReturnPath] = useState("");
   const [isScrolled, setIsScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [announcement, setAnnouncement] = useState<{
@@ -60,6 +61,16 @@ export default function Header() {
   useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    if (pathname === "/login" || pathname === "/register") return;
+    setAuthReturnPath(`${window.location.pathname}${window.location.search}`);
+  }, [pathname]);
+
+  function authHref(path: "/login" | "/register") {
+    if (!authReturnPath) return path;
+    return `${path}?next=${encodeURIComponent(authReturnPath)}`;
+  }
 
   return (
     <>
@@ -145,7 +156,7 @@ export default function Header() {
               </Button>
 
               {/* Account */}
-              <Link href={user ? "/account" : "/login"} aria-label={user ? "My account" : "Log in"}>
+              <Link href={user ? "/account" : authHref("/login")} aria-label={user ? "My account" : "Log in"}>
                 <Button variant="ghost" size="icon">
                   <User className="h-5 w-5" aria-hidden="true" />
                 </Button>
@@ -238,7 +249,7 @@ export default function Header() {
               ))}
               <li>
                 <Link
-                  href={user ? "/account" : "/login"}
+                  href={user ? "/account" : authHref("/login")}
                   className="block px-4 py-3 rounded-lg text-sm font-medium text-foreground hover:bg-muted"
                 >
                   {user ? "My Account" : "Login / Register"}
@@ -247,7 +258,7 @@ export default function Header() {
               {!user && (
                 <li>
                   <Link
-                    href="/register"
+                    href={authHref("/register")}
                     className="block px-4 py-3 rounded-lg text-sm font-medium text-foreground hover:bg-muted"
                   >
                     Create an Account

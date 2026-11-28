@@ -33,7 +33,9 @@ export default function OrderDetailPage() {
     void api.get<OrderResponse>(`/orders/${params.id}`)
       .then((response) => setOrder(response.data.order))
       .catch((requestError) => {
-        if (requestError instanceof ApiError && requestError.status === 401) router.replace("/login");
+        if (requestError instanceof ApiError && requestError.status === 401) {
+          router.replace(`/login?next=${encodeURIComponent(`/account/orders/${params.id}`)}`);
+        }
         else setError("Could not load this order.");
       });
   }, [params.id, router]);

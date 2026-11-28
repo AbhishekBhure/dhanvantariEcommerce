@@ -32,7 +32,7 @@ export default function LoginPage() {
       const result = await dispatch(loginUser(credentials));
       if (loginUser.rejected.match(result)) throw new Error(result.payload as string ?? "Unable to sign in.");
       const next = new URLSearchParams(window.location.search).get("next");
-      router.push(next?.startsWith("/") && !next.startsWith("//") ? next : "/cart");
+      router.push(next?.startsWith("/") && !next.startsWith("//") ? next : "/");
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Unable to sign in. Please try again.");
     } finally {

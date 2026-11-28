@@ -72,7 +72,7 @@ export default function RegisterPage() {
       const result = await dispatch(verifyRegistrationEmailOtp({ email: form.email.trim().toLowerCase(), code: otp }));
       if (verifyRegistrationEmailOtp.rejected.match(result)) throw new Error(result.payload as string ?? "Could not verify your email address.");
       const next = new URLSearchParams(window.location.search).get("next");
-      router.push(next?.startsWith("/") && !next.startsWith("//") ? next : "/cart");
+      router.push(next?.startsWith("/") && !next.startsWith("//") ? next : "/");
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Could not verify your phone number.");
     } finally {

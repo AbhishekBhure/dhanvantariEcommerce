@@ -15,7 +15,9 @@ export default function OrdersPage() {
 
   useEffect(() => {
     void dispatch(loadMyOrders()).then((result) => {
-      if (loadMyOrders.rejected.match(result) && result.error.message?.includes("401")) router.replace("/login");
+      if (loadMyOrders.rejected.match(result) && result.error.message?.includes("401")) {
+        router.replace("/login?next=%2Faccount%2Forders");
+      }
     });
   }, [dispatch, router]);
 

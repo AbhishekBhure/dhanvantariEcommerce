@@ -18,7 +18,7 @@ export default function AccountPage() {
 
   useEffect(() => {
     if (user) return;
-    void dispatch(loadCurrentUser()).then((result) => { if (loadCurrentUser.rejected.match(result)) router.replace("/login"); setIsLoading(false); });
+    void dispatch(loadCurrentUser()).then((result) => { if (loadCurrentUser.rejected.match(result)) router.replace("/login?next=%2Faccount"); setIsLoading(false); });
   }, [dispatch, router, user]);
 
   async function handleLogout() {
