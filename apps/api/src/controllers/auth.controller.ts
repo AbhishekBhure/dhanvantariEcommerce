@@ -10,7 +10,7 @@ import {
 } from "../middleware/errorHandler.js";
 import { AuthTokenPayload, UserRole } from "@dhanvantari/shared-types";
 import { sendPasswordChangedEmail, sendPasswordResetEmail, sendWelcomeEmail } from "../lib/email.js";
-import { issuePhoneOtp } from "../lib/phoneOtp.js";
+import { issueEmailOtp } from "../lib/emailOtp.js";
 import { mergeGuestCart } from "../lib/mergeGuestCart.js";
 import { COOKIE_OPTIONS, signToken } from "../lib/authSession.js";
 
@@ -25,18 +25,16 @@ export async function register(
   try {
     const { name, email, password, phone } = req.body as {
       name: string;
-      email?: string;
+      email: string;
       password: string;
       phone: string;
     };
 
-    const normalizedEmail = email?.trim().toLowerCase() || null;
+    const normalizedEmail = email.trim().toLowerCase();
     const existingPhone = await prisma.user.findUnique({ where: { phone } });
     if (existingPhone) throw new ConflictError("An account with this phone number already exists");
-    if (normalizedEmail) {
-      const existingEmail = await prisma.user.findUnique({ where: { email: normalizedEmail } });
-      if (existingEmail) throw new ConflictError("An account with this email already exists");
-    }
+    const existingEmail = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+    if (existingEmail) throw new ConflictError("An account with this email already exists");
 
     const passwordHash = await bcrypt.hash(password, 12);
     const user = await prisma.user.create({
@@ -49,7 +47,7 @@ export async function register(
       select: { id: true, email: true, name: true, phone: true, role: true, createdAt: true },
     });
     try {
-      await issuePhoneOtp(user.id, phone, "REGISTRATION");
+      await issueEmailOtp(user.id, normalizedEmail, name, phone, "REGISTRATION");
     } catch (error) {
       await prisma.user.delete({ where: { id: user.id } });
       throw error;
@@ -57,7 +55,7 @@ export async function register(
 
     res.status(201).json({
       success: true,
-      message: "Account created. Enter the 4-digit code sent to your phone.",
+      message: "Account created. Enter the 4-digit code sent to your email.",
       data: { user },
     });
   } catch (err) {
@@ -90,7 +88,7 @@ export async function login(
     }
 
     if (phone && !user.phoneVerified) {
-      throw new UnauthorizedError("Please verify your phone number before signing in.");
+      throw new UnauthorizedError("Please sign in with your verified email until your phone number is verified.");
     }
     if (email && !user.emailVerified) {
       throw new UnauthorizedError("Please verify your email before signing in.");

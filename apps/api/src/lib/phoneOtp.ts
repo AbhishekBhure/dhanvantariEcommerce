@@ -10,7 +10,71 @@ const OTP_LIFETIME_MS = 5 * 60 * 1000;
 const RESEND_DELAY_MS = 60 * 1000;
 const MAX_ATTEMPTS = 5;
 
-async function sendSms(phone: string, code: string): Promise<void> {
+const TEXTBEE_FALLBACK_STATUSES = new Set([400, 401, 429]);
+
+class TextBeeSmsError extends Error {
+  constructor(
+    message: string,
+    readonly canFallback: boolean,
+  ) {
+    super(message);
+  }
+}
+
+function hasTwilioConfig(): boolean {
+  return Boolean(
+    process.env["TWILIO_ACCOUNT_SID"] &&
+      process.env["TWILIO_AUTH_TOKEN"] &&
+      process.env["TWILIO_FROM_NUMBER"],
+  );
+}
+
+async function sendSmsViaTextBee(phone: string, code: string): Promise<void> {
+  const apiKey = process.env["TEXTBEE_API_KEY"]?.trim();
+  if (!apiKey) {
+    logger.warn({ provider: "textbee" }, "TextBee SMS is not configured");
+    throw new TextBeeSmsError("TextBee SMS is not configured", true);
+  }
+
+  const baseUrl = (
+    process.env["TEXTBEE_BASE_URL"] || "https://api.textbee.dev/api/v1"
+  ).replace(/\/+$/, "");
+  const deviceId = process.env["TEXTBEE_DEVICE_ID"]?.trim();
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}/gateway/send-sms`, {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        message: `Your Dhanvantari verification code is ${code}. It expires in 5 minutes.`,
+        recipients: [`+91${phone}`],
+        ...(deviceId ? { deviceId } : {}),
+      }),
+      signal: AbortSignal.timeout(20000),
+    });
+    console.log("TextBee response:", response);
+  } catch (error) {
+    logger.warn(
+      { provider: "textbee", errorType: error instanceof Error ? error.name : "UnknownError" },
+      "TextBee SMS request failed without a confirmed response; not retrying through another provider",
+    );
+    throw new TextBeeSmsError("TextBee SMS request outcome is unknown", false);
+  }
+
+  if (!response.ok) {
+    const canFallback = TEXTBEE_FALLBACK_STATUSES.has(response.status);
+    logger.warn(
+      { provider: "textbee", statusCode: response.status, canFallback },
+      "TextBee rejected phone verification SMS",
+    );
+    throw new TextBeeSmsError("TextBee rejected the SMS request", canFallback);
+  }
+}
+
+async function sendSmsViaTwilio(phone: string, code: string): Promise<void> {
   const accountSid = process.env["TWILIO_ACCOUNT_SID"];
   const authToken = process.env["TWILIO_AUTH_TOKEN"];
   const fromNumber = process.env["TWILIO_FROM_NUMBER"];
@@ -60,6 +124,29 @@ async function sendSms(phone: string, code: string): Promise<void> {
   }
 }
 
+export async function sendVerificationSms(phone: string, code: string): Promise<void> {
+  try {
+    await sendSmsViaTextBee(phone, code);
+  } catch (error) {
+    if (!(error instanceof TextBeeSmsError)) throw error;
+    if (!error.canFallback) {
+      throw new AppError("Could not send the verification SMS. Please try again.", 502);
+    }
+    if (!hasTwilioConfig()) {
+      if (!process.env["TEXTBEE_API_KEY"]?.trim()) {
+        throw new AppError("TextBee and Twilio SMS are not configured", 503);
+      }
+      throw new AppError("Could not send the verification SMS. Please try again.", 502);
+    }
+
+    logger.warn(
+      { primaryProvider: "textbee", fallbackProvider: "twilio" },
+      "Using Twilio fallback after TextBee did not accept the SMS",
+    );
+    await sendSmsViaTwilio(phone, code);
+  }
+}
+
 export async function issuePhoneOtp(
   userId: string,
   phone: string,
@@ -89,7 +176,7 @@ export async function issuePhoneOtp(
   });
 
   try {
-    await sendSms(phone, code);
+    await sendVerificationSms(phone, code);
   } catch (error) {
     await prisma.phoneVerification.delete({ where: { id: verification.id } });
     throw error;

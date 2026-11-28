@@ -4,7 +4,7 @@ import { z } from "zod";
 
 export const registerSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(100),
-  email: z.union([z.string().email("Invalid email address"), z.literal("")]).optional().transform((value) => value || undefined),
+  email: z.string().trim().toLowerCase().email("Invalid email address"),
   password: z
     .string()
     .min(8, "Password must be at least 8 characters")
@@ -29,7 +29,23 @@ export const phoneOtpVerifySchema = phoneOtpRequestSchema.extend({
   code: z.string().regex(/^\d{4}$/, "Enter the 4-digit verification code"),
 });
 
+export const emailOtpRequestSchema = z.object({
+  email: z.string().trim().toLowerCase().email("Invalid email address"),
+});
+
+export const emailOtpVerifySchema = emailOtpRequestSchema.extend({
+  code: z.string().regex(/^\d{4}$/, "Enter the 4-digit verification code"),
+});
+
 export const passwordResetOtpSchema = phoneOtpVerifySchema.extend({
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+    .regex(/[0-9]/, "Password must contain at least one number"),
+});
+
+export const emailPasswordResetOtpSchema = emailOtpVerifySchema.extend({
   password: z
     .string()
     .min(8, "Password must be at least 8 characters")

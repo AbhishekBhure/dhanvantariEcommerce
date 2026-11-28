@@ -85,6 +85,11 @@ enum PhoneVerificationPurpose {
   PASSWORD_RESET
 }
 
+enum EmailVerificationPurpose {
+  REGISTRATION
+  PASSWORD_RESET
+}
+
 // ─── User ─────────────────────────────────────────────────────
 
 model User {
@@ -113,6 +118,7 @@ model User {
   couponRedemptions     CouponRedemption[]
   auditLogs             AuditLog[]
   phoneVerifications    PhoneVerification[]
+  emailVerifications    EmailVerification[]
 
   @@map("users")
 }
@@ -133,6 +139,24 @@ model PhoneVerification {
 
   @@index([userId, phone, purpose, createdAt])
   @@map("phone_verifications")
+}
+
+model EmailVerification {
+  id         String                   @id @default(uuid())
+  userId     String
+  email      String
+  purpose    EmailVerificationPurpose
+  codeHash   String
+  expiresAt  DateTime
+  attempts   Int                      @default(0)
+  verifiedAt DateTime?
+  consumedAt DateTime?
+  createdAt  DateTime                 @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, email, purpose, createdAt])
+  @@map("email_verifications")
 }
 
 // ─── Address ──────────────────────────────────────────────────

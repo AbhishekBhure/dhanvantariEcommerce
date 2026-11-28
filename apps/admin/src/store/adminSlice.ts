@@ -118,6 +118,10 @@ export const toggleCustomer = createAsyncThunk("admin/toggleCustomer", async (cu
   try { await api(`/admin/customers/${customer.id}/status`, { method: "PATCH", body: JSON.stringify({ isActive: !customer.isActive }) }); await dispatch(loadCustomers()).unwrap(); }
   catch (error) { return rejectWithValue(messageFrom(error, "Could not update customer.")); }
 });
+export const deleteCustomer = createAsyncThunk("admin/deleteCustomer", async (customer: Customer, { rejectWithValue }) => {
+  try { await api(`/admin/customers/${customer.id}`, { method: "DELETE" }); }
+  catch (error) { return rejectWithValue(messageFrom(error, "Could not permanently delete customer.")); }
+});
 export const loadCoupons = createAsyncThunk("admin/loadCoupons", async (_, { rejectWithValue }) => {
   try { return (await api<{ data: { coupons: Coupon[] } }>("/admin/coupons")).data.coupons; }
   catch (error) { return rejectWithValue(messageFrom(error, "Could not load coupons.")); }

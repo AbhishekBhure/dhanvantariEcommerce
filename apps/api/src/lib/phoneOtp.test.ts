@@ -1,15 +1,31 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import test from "node:test";
-import { addressSchema, createOrderSchema, passwordResetOtpSchema, registerSchema } from "@dhanvantari/validation";
+import {
+  addressSchema,
+  createOrderSchema,
+  emailOtpRequestSchema,
+  emailOtpVerifySchema,
+  passwordResetOtpSchema,
+  registerSchema,
+} from "@dhanvantari/validation";
 import { isOtpMatch } from "./phoneOtpCrypto.js";
 
 process.env["OTP_HMAC_SECRET"] = "test-only-otp-secret";
 
-test("phone registration requires a mobile number and allows no email", () => {
-  const account = { name: "Test Buyer", phone: "9876543210", password: "StrongPass1" };
+test("registration requires a valid mobile number and email", () => {
+  const account = { name: "Test Buyer", email: "buyer@example.com", phone: "9876543210", password: "StrongPass1" };
   assert.equal(registerSchema.safeParse(account).success, true);
-  assert.equal(registerSchema.safeParse({ name: account.name, password: account.password }).success, false);
+  assert.equal(registerSchema.safeParse({ ...account, email: undefined }).success, false);
+  assert.equal(registerSchema.safeParse({ ...account, email: "not-an-email" }).success, false);
+  assert.equal(registerSchema.parse({ ...account, email: " BUYER@example.com " }).email, "buyer@example.com");
+});
+
+test("email OTP requests require a valid email and four-digit code", () => {
+  assert.equal(emailOtpRequestSchema.safeParse({ email: "buyer@example.com" }).success, true);
+  assert.equal(emailOtpRequestSchema.safeParse({ email: "not-an-email" }).success, false);
+  assert.equal(emailOtpVerifySchema.safeParse({ email: "buyer@example.com", code: "1234" }).success, true);
+  assert.equal(emailOtpVerifySchema.safeParse({ email: "buyer@example.com", code: "123" }).success, false);
 });
 
 test("checkout orders require a delivery address and support COD only", () => {

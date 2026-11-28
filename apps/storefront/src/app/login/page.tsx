@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 export default function LoginPage() {
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const [phone, setPhone] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -26,7 +26,10 @@ export default function LoginPage() {
     setError("");
     setIsLoading(true);
     try {
-      const result = await dispatch(loginUser({ phone, password }));
+      const credentials = identifier.includes("@")
+        ? { email: identifier.trim(), password }
+        : { phone: identifier.replace(/\D/g, "").slice(-10), password };
+      const result = await dispatch(loginUser(credentials));
       if (loginUser.rejected.match(result)) throw new Error(result.payload as string ?? "Unable to sign in.");
       const next = new URLSearchParams(window.location.search).get("next");
       router.push(next?.startsWith("/") && !next.startsWith("//") ? next : "/cart");
@@ -53,7 +56,7 @@ export default function LoginPage() {
         <h1 className="section-heading mt-3">Sign in</h1>
         <p className="mt-3 text-muted-foreground">Use your Dhanvantari account to continue.</p>
         <form onSubmit={handleSubmit} className="mt-8 space-y-5">
-          <div><label htmlFor="phone" className="mb-2 block text-sm font-medium">Mobile number</label><input id="phone" type="tel" inputMode="numeric" autoComplete="tel" required pattern="[6-9][0-9]{9}" maxLength={10} value={phone} onChange={(event) => setPhone(event.target.value.replace(/\D/g, "").slice(0, 10))} className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+          <div><label htmlFor="identifier" className="mb-2 block text-sm font-medium">Email or mobile number</label><input id="identifier" type="text" inputMode={identifier.includes("@") ? "email" : "tel"} autoComplete="username" required value={identifier} onChange={(event) => setIdentifier(event.target.value)} className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" /><p className="mt-1 text-xs text-muted-foreground">Use your verified email or verified mobile number.</p></div>
           <div><label htmlFor="password" className="mb-2 block text-sm font-medium">Password</label><input id="password" type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
           <Button type="submit" size="lg" className="w-full bg-brand-600 text-white hover:bg-brand-700" isLoading={isLoading}>Sign in <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" /></Button>

@@ -41,6 +41,7 @@ export async function sendRegistrationOtp(req: Request, res: Response, next: Nex
     const { phone } = req.body as { phone: string };
     const user = await prisma.user.findUnique({ where: { phone } });
     if (!user || user.phoneVerified) throw new BadRequestError("This phone number cannot be verified.");
+    if (!user.emailVerified) throw new BadRequestError("Verify your email address first.");
     await issuePhoneOtp(user.id, phone, "REGISTRATION");
     res.json({ success: true, message: "A verification code has been sent." });
   } catch (error) {
@@ -53,6 +54,7 @@ export async function verifyRegistrationOtp(req: Request, res: Response, next: N
     const { phone, code } = req.body as { phone: string; code: string };
     const user = await prisma.user.findUnique({ where: { phone } });
     if (!user || user.phoneVerified) throw new BadRequestError("The verification code is invalid or expired.");
+    if (!user.emailVerified) throw new BadRequestError("Verify your email address first.");
     const verification = await findActiveVerification(user.id, phone, "REGISTRATION");
     if (!verification || !isOtpMatch(code, verification.codeHash)) {
       if (verification) await recordFailedAttempt(verification.id, verification.attempts);

@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import AdminLayout from "@/components/AdminLayout";
-import { loadCustomers, toggleCustomer, type Customer } from "@/store/adminSlice";
+import { deleteCustomer, loadCustomers, toggleCustomer, type Customer } from "@/store/adminSlice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
 export default function CustomersPage() {
@@ -11,6 +10,7 @@ export default function CustomersPage() {
   const customers = useAppSelector((state) => state.admin.customers.items);
   const [error, setError] = useState("");
   const [updatingId, setUpdatingId] = useState("");
+  const [deletingId, setDeletingId] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
@@ -21,6 +21,30 @@ export default function CustomersPage() {
     const result = await dispatch(toggleCustomer(customer));
     if (toggleCustomer.rejected.match(result)) setError(result.payload as string ?? "Could not update customer.");
     setUpdatingId("");
+  }
+
+  async function handleDeleteCustomer(customer: Customer) {
+    const confirmed = window.confirm(
+      `Permanently delete ${customer.name}? Their profile and associated reviews, cart, and saved data will be removed. Customers with past orders cannot be deleted.`,
+    );
+    if (!confirmed) return;
+
+    setError("");
+    setDeletingId(customer.id);
+    const result = await dispatch(deleteCustomer(customer));
+    if (deleteCustomer.rejected.match(result)) {
+      setError(result.payload as string ?? "Could not permanently delete customer.");
+    } else {
+      const reloadResult = await dispatch(loadCustomers({
+        page,
+        pageSize: 20,
+        search: search.trim() || undefined,
+      }));
+      if (loadCustomers.rejected.match(reloadResult)) {
+        setError(reloadResult.payload as string ?? "Customer was deleted, but the list could not be refreshed.");
+      }
+    }
+    setDeletingId("");
   }
 
   return (
@@ -36,7 +60,7 @@ export default function CustomersPage() {
               <th className="px-6 py-3.5">Total Orders</th>
               <th className="px-6 py-3.5">Joined On</th>
               <th className="px-6 py-3.5">Status</th>
-              <th className="px-6 py-3.5 text-right">Action</th>
+              <th className="px-6 py-3.5 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -55,14 +79,24 @@ export default function CustomersPage() {
                   </span>
                 </td>
                 <td className="px-6 py-4 text-right">
-                  <button
-                    type="button"
-                    disabled={updatingId === customer.id}
-                    onClick={() => void handleToggleCustomer(customer)}
-                    className="text-xs font-semibold text-emerald-700 hover:underline"
-                  >
-                    {customer.isActive ? "Deactivate" : "Activate"}
-                  </button>
+                  <div className="flex items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      disabled={updatingId === customer.id || deletingId === customer.id}
+                      onClick={() => void handleToggleCustomer(customer)}
+                      className="whitespace-nowrap text-xs font-semibold text-emerald-700 hover:underline"
+                    >
+                      {customer.isActive ? "Deactivate" : "Activate"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={updatingId === customer.id || deletingId === customer.id}
+                      onClick={() => void handleDeleteCustomer(customer)}
+                      className="whitespace-nowrap text-xs font-semibold text-red-700 hover:underline disabled:opacity-50"
+                    >
+                      {deletingId === customer.id ? "Deleting..." : "Delete permanently"}
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

@@ -1,6 +1,8 @@
 import { Router } from "express";
+import { Prisma } from "@prisma/client";
 import prisma from "../../lib/prisma.js";
 import { validate } from "../../middleware/validate.js";
+import { ConflictError, NotFoundError } from "../../middleware/errorHandler.js";
 import { paginationSchema } from "@dhanvantari/validation";
 
 const router: ReturnType<typeof Router> = Router();
@@ -114,6 +116,38 @@ router.patch("/:id/status", async (req, res, next) => {
     res.json({ success: true, message: `Customer ${isActive ? "activated" : "deactivated"}` });
   } catch (err) {
     next(err);
+  }
+});
+
+router.delete("/:id", async (req, res, next) => {
+  try {
+    const id = Array.isArray(req.params["id"]) ? req.params["id"][0] : req.params["id"] ?? "";
+    await prisma.$transaction(async (tx) => {
+      const customer = await tx.user.findUnique({
+        where: { id },
+        select: { role: true, _count: { select: { orders: true } } },
+      });
+
+      if (!customer || customer.role !== "CUSTOMER") {
+        throw new NotFoundError("Customer");
+      }
+      if (customer._count.orders > 0) {
+        throw new ConflictError("Customers with orders cannot be permanently deleted. Deactivate them instead.");
+      }
+
+      await tx.review.deleteMany({ where: { userId: id } });
+      await tx.couponRedemption.deleteMany({ where: { userId: id } });
+      await tx.cart.deleteMany({ where: { userId: id } });
+      await tx.user.delete({ where: { id } });
+    });
+
+    res.json({ success: true, message: "Customer permanently deleted." });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
+      next(new ConflictError("This customer has linked records and cannot be deleted. Deactivate them instead."));
+      return;
+    }
+    next(error);
   }
 });
 

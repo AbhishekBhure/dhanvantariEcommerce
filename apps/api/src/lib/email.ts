@@ -7,10 +7,11 @@
 
 import { Resend } from "resend";
 import logger from "./logger.js";
+import { AppError } from "../middleware/errorHandler.js";
 
 const resend = new Resend(process.env["RESEND_API_KEY"]);
 
-const FROM_EMAIL = process.env["RESEND_FROM_EMAIL"] ?? "noreply@dhanvantari.in";
+const FROM_EMAIL = process.env["RESEND_FROM_EMAIL"] ?? "noreply@shreedhanvantariagencies.co.in";
 const FROM_NAME = process.env["RESEND_FROM_NAME"] ?? "Dhanvantari Ayurvedic Agencies";
 const FROM = `${FROM_NAME} <${FROM_EMAIL}>`;
 
@@ -137,6 +138,57 @@ async function sendEmail(opts: {
     }
   } catch (err) {
     logger.error({ err, to: opts.to }, "Failed to send email via Resend");
+  }
+}
+
+export async function sendEmailOtp(
+  to: string,
+  name: string,
+  code: string,
+  purpose: "REGISTRATION" | "PASSWORD_RESET",
+): Promise<void> {
+  if (!process.env["RESEND_API_KEY"]) {
+    throw new AppError("Email verification is not configured.", 503);
+  }
+
+  const isRegistration = purpose === "REGISTRATION";
+  const html = baseTemplate(
+    `
+    <div style="text-align:center;margin-bottom:28px;">
+      <div style="font-size:48px;margin-bottom:12px;">🔐</div>
+      ${heading(isRegistration ? "Verify your email" : "Password reset code")}
+      ${subheading(`Hi ${name}, enter this 4-digit code to ${isRegistration ? "finish creating your account" : "reset your password"}.`)}
+    </div>
+    <div style="margin:0 auto 24px;padding:20px;text-align:center;background:#f0faf5;border:1px solid #b8dfc8;border-radius:10px;">
+      <span style="font-family:monospace;font-size:36px;font-weight:700;letter-spacing:12px;color:${BRAND_GREEN};">${code}</span>
+    </div>
+    <p style="font-size:14px;color:#666;text-align:center;">This code expires in 5 minutes. If you did not request it, you can ignore this email.</p>
+    `,
+    `Your Dhanvantari ${isRegistration ? "email verification" : "password reset"} code.`,
+  );
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM,
+      to,
+      subject: isRegistration ? "Verify your Dhanvantari email" : "Your Dhanvantari password reset code",
+      html,
+    });
+    if (error) {
+      const errorMessage = error.message
+        .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, "[redacted email]")
+        .replace(/\bre_[A-Za-z0-9_-]+\b/g, "[redacted API key]")
+        .slice(0, 240);
+      logger.warn({ errorName: error.name, errorMessage }, "Resend rejected an OTP email");
+      throw new AppError("Could not send the verification email. Please try again.", 502);
+    }
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    logger.warn(
+      { errorType: error instanceof Error ? error.name : "UnknownError" },
+      "Resend OTP email request failed",
+    );
+    throw new AppError("Could not send the verification email. Please try again.", 502);
   }
 }
 
