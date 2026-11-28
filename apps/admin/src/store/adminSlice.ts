@@ -11,7 +11,7 @@ export type Dashboard = {
   lowStockProducts: { id: string; name: string; stock: number }[];
   recentOrders: { id: string; orderNumber: string; status: string; total: number; createdAt: string; user: { name: string } | null }[];
 };
-export type Product = { id: string; name: string; sku: string | null; price: number; stock: number; isPublished: boolean; categories: string[] };
+export type Product = { id: string; name: string; sku: string | null; price: number; stock: number; isPublished: boolean; categories: string[]; orderCount: number };
 export type Category = { id: string; name: string; slug: string; description: string | null; isPublished: boolean; sortOrder: number; _count?: { products: number } };
 export type Order = { id: string; orderNumber: string; status: string; total: number; createdAt: string; user: { name: string } | null };
 export type Customer = { id: string; name: string; email: string | null; phone: string | null; isActive: boolean; createdAt: string; _count: { orders: number } };
@@ -105,6 +105,14 @@ export const createProduct = createAsyncThunk("admin/createProduct", async (payl
 export const updateProduct = createAsyncThunk("admin/updateProduct", async ({ id, data }: { id: string; data: Record<string, unknown> }, { dispatch, rejectWithValue }) => {
   try { await api(`/admin/products/${id}`, { method: "PATCH", body: JSON.stringify(data) }); await dispatch(loadProducts()).unwrap(); }
   catch (error) { return rejectWithValue(messageFrom(error, "Could not update product.")); }
+});
+export const toggleProduct = createAsyncThunk("admin/toggleProduct", async (product: Product, { rejectWithValue }) => {
+  try { await api(`/admin/products/${product.id}/status`, { method: "PATCH", body: JSON.stringify({ isPublished: !product.isPublished }) }); }
+  catch (error) { return rejectWithValue(messageFrom(error, "Could not update product status.")); }
+});
+export const deleteProduct = createAsyncThunk("admin/deleteProduct", async (product: Product, { rejectWithValue }) => {
+  try { await api(`/admin/products/${product.id}`, { method: "DELETE" }); }
+  catch (error) { return rejectWithValue(messageFrom(error, "Could not permanently delete product.")); }
 });
 export const adjustInventory = createAsyncThunk("admin/adjustInventory", async ({ id, quantity, reason }: { id: string; quantity: number; reason: string }, { dispatch, rejectWithValue }) => {
   try { await api(`/admin/products/${id}/inventory-adjust`, { method: "POST", body: JSON.stringify({ quantity, reason }) }); await dispatch(loadProducts()).unwrap(); }

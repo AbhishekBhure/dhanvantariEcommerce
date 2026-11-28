@@ -2,9 +2,10 @@ import { Router } from "express";
 import multer from "multer";
 import { randomUUID } from "crypto";
 import slugify from "slugify";
+import { Prisma } from "@prisma/client";
 import prisma from "../../lib/prisma.js";
 import { validate } from "../../middleware/validate.js";
-import { AppError, BadRequestError, NotFoundError } from "../../middleware/errorHandler.js";
+import { AppError, BadRequestError, ConflictError, NotFoundError } from "../../middleware/errorHandler.js";
 import logger from "../../lib/logger.js";
 import { productSchema, paginationSchema, type ProductInput } from "@dhanvantari/validation";
 
@@ -57,6 +58,7 @@ router.get("/", validate(paginationSchema, "query"), async (req, res, next) => {
           categories: {
             select: { category: { select: { name: true } } },
           },
+          _count: { select: { orderItems: true } },
         },
       }),
       prisma.product.count({ where }),
@@ -71,6 +73,7 @@ router.get("/", validate(paginationSchema, "query"), async (req, res, next) => {
           price: Number(p.price),
           primaryImage: p.images[0]?.url ?? null,
           categories: p.categories.map((c) => c.category.name),
+          orderCount: p._count.orderItems,
         })),
         total,
         page,
@@ -242,6 +245,25 @@ router.patch("/:id", validate(productSchema.partial()), async (req, res, next) =
   }
 });
 
+router.patch("/:id/status", async (req, res, next) => {
+  try {
+    const id = Array.isArray(req.params["id"]) ? req.params["id"][0] : req.params["id"] ?? "";
+    const { isPublished } = req.body as { isPublished?: unknown };
+    if (typeof isPublished !== "boolean") {
+      throw new BadRequestError("Provide a valid product status.");
+    }
+
+    const product = await prisma.product.update({
+      where: { id },
+      data: { isPublished },
+      select: { id: true, isPublished: true },
+    });
+    res.json({ success: true, data: { product } });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.put("/:id/images", async (req, res, next) => {
   try {
     const id = Array.isArray(req.params["id"]) ? req.params["id"][0] : req.params["id"] ?? "";
@@ -267,17 +289,28 @@ router.put("/:id/images", async (req, res, next) => {
 router.delete("/:id", async (req, res, next) => {
   try {
     const id = Array.isArray(req.params["id"]) ? req.params["id"][0] : req.params["id"] ?? "";
-    const existing = await prisma.product.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundError("Product");
+    await prisma.$transaction(async (tx) => {
+      const product = await tx.product.findUnique({
+        where: { id },
+        select: { id: true, _count: { select: { orderItems: true } } },
+      });
+      if (!product) throw new NotFoundError("Product");
+      if (product._count.orderItems > 0) {
+        throw new ConflictError("Products with order history cannot be permanently deleted. Deactivate the product instead.");
+      }
 
-    // Soft delete by unpublishing instead of hard delete
-    await prisma.product.update({
-      where: { id },
-      data: { isPublished: false },
+      await tx.cartItem.deleteMany({ where: { productId: id } });
+      await tx.inventoryLog.deleteMany({ where: { productId: id } });
+      await tx.product.delete({ where: { id } });
     });
-    res.json({ success: true, message: "Product unpublished" });
-  } catch (err) {
-    next(err);
+
+    res.json({ success: true, message: "Product permanently deleted." });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
+      next(new ConflictError("This product has order history and cannot be permanently deleted. Deactivate it instead."));
+      return;
+    }
+    next(error);
   }
 });
 

@@ -2,9 +2,9 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, ExternalLink, Package, Pencil } from "lucide-react";
+import { Pencil } from "lucide-react";
 import AdminLayout from "@/components/AdminLayout";
-import { createProduct as createProductThunk, loadCategories, loadProducts, type Category, type Product } from "@/store/adminSlice";
+import { createProduct as createProductThunk, deleteProduct, loadCategories, loadProducts, toggleProduct, type Product } from "@/store/adminSlice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
 const initialForm = { name: "", shortDescription: "", mrp: "", price: "", stock: "", categoryId: "", isPublished: false };
@@ -17,6 +17,9 @@ export default function ProductsPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [productsError, setProductsError] = useState("");
+  const [updatingProductId, setUpdatingProductId] = useState("");
+  const [deletingProductId, setDeletingProductId] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
@@ -31,6 +34,42 @@ export default function ProductsPage() {
       if (createProductThunk.fulfilled.match(result)) { setForm({ ...initialForm, categoryId: categories[0]?.id || "" }); setMessage("Product created successfully."); }
       else setError(result.payload as string ?? "Could not create product.");
     } finally { setIsSaving(false); }
+  }
+
+  async function refreshProducts() {
+    const result = await dispatch(loadProducts({ page, pageSize: 20, search: search.trim() || undefined }));
+    if (loadProducts.rejected.match(result)) {
+      setProductsError(result.payload as string ?? "Could not refresh products.");
+    }
+  }
+
+  async function handleToggleProduct(product: Product) {
+    setProductsError("");
+    setUpdatingProductId(product.id);
+    const result = await dispatch(toggleProduct(product));
+    if (toggleProduct.rejected.match(result)) {
+      setProductsError(result.payload as string ?? "Could not update product status.");
+    } else {
+      await refreshProducts();
+    }
+    setUpdatingProductId("");
+  }
+
+  async function handleDeleteProduct(product: Product) {
+    if (product.orderCount > 0) return;
+    if (!window.confirm(`Permanently delete "${product.name}"? This removes the product and its associated catalog data. Products with past orders cannot be deleted.`)) return;
+
+    setProductsError("");
+    setDeletingProductId(product.id);
+    const result = await dispatch(deleteProduct(product));
+    if (deleteProduct.rejected.match(result)) {
+      setProductsError(result.payload as string ?? "Could not permanently delete product.");
+    } else if (products.length === 1 && page > 1) {
+      setPage((current) => Math.max(1, current - 1));
+    } else {
+      await refreshProducts();
+    }
+    setDeletingProductId("");
   }
 
   return (
@@ -82,7 +121,7 @@ export default function ProductsPage() {
       <div className="mb-4 flex gap-3"><input aria-label="Search products" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Search product name or SKU" className="h-10 w-full max-w-md border bg-white px-3 text-sm" /><span className="self-center text-xs text-slate-500">Page {page} · {products.length} results</span></div>
       {/* Products Table Card */}
       <section className="overflow-x-auto border bg-white rounded-2xl shadow-xs">
-        <table className="w-full min-w-[640px] text-left text-sm">
+        <table className="w-full min-w-[980px] text-left text-sm">
           <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wider text-slate-500 border-b">
             <tr>
               <th className="px-6 py-3.5">Product Name</th>
@@ -90,7 +129,7 @@ export default function ProductsPage() {
               <th className="px-6 py-3.5">Price</th>
               <th className="px-6 py-3.5">Stock</th>
               <th className="px-6 py-3.5">Status</th>
-              <th className="px-6 py-3.5 text-right">Manage</th>
+              <th className="px-6 py-3.5 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -110,16 +149,40 @@ export default function ProductsPage() {
                     {product.stock} in stock
                   </span>
                 </td>
-                <td className="px-6 py-4 text-right"><Link href={`/products/${product.id}`} aria-label={`Edit ${product.name}`} className="inline-flex items-center gap-2 text-xs font-semibold text-emerald-700"><Pencil className="h-4 w-4"/>Edit</Link></td>
                 <td className="px-6 py-4">
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${product.isPublished ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-slate-100 text-slate-600 border"}`}>
-                    {product.isPublished ? "Published" : "Draft"}
+                    {product.isPublished ? "Active" : "Inactive"}
                   </span>
+                </td>
+                <td className="px-6 py-4 text-right">
+                  <div className="flex items-center justify-end gap-3">
+                    <Link href={`/products/${product.id}`} aria-label={`Edit ${product.name}`} className="inline-flex items-center gap-2 whitespace-nowrap text-xs font-semibold text-emerald-700">
+                      <Pencil className="h-4 w-4" />Edit
+                    </Link>
+                    <button
+                      type="button"
+                      disabled={updatingProductId === product.id || deletingProductId === product.id}
+                      onClick={() => void handleToggleProduct(product)}
+                      className="whitespace-nowrap text-xs font-semibold text-emerald-700 hover:underline disabled:opacity-50"
+                    >
+                      {product.isPublished ? "Deactivate" : "Activate"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={product.orderCount > 0 || updatingProductId === product.id || deletingProductId === product.id}
+                      title={product.orderCount > 0 ? "Products with past orders cannot be deleted. Deactivate instead." : undefined}
+                      onClick={() => void handleDeleteProduct(product)}
+                      className="whitespace-nowrap text-xs font-semibold text-red-700 hover:underline disabled:opacity-50"
+                    >
+                      {deletingProductId === product.id ? "Deleting..." : product.orderCount > 0 ? "Has orders" : "Delete permanently"}
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+        {productsError && <p role="alert" className="px-6 py-4 text-xs font-semibold text-red-600">{productsError}</p>}
       </section>
       <div className="mt-4 flex justify-end gap-2"><button type="button" disabled={page === 1} onClick={() => setPage((current) => Math.max(1, current - 1))} className="h-9 border bg-white px-3 text-sm disabled:opacity-40">Previous</button><button type="button" disabled={products.length < 20} onClick={() => setPage((current) => current + 1)} className="h-9 border bg-white px-3 text-sm disabled:opacity-40">Next</button></div>
     </AdminLayout>
