@@ -100,7 +100,7 @@ const DEFAULT_WHY_US = [
   {
     icon: Truck,
     title: "Fast Delivery",
-    description: "Free shipping on orders above ₹499, delivered pan-India.",
+    description: "Flat ₹50 delivery charge applies to every order, delivered pan-India.",
   },
 ];
 

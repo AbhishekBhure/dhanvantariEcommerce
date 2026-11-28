@@ -404,15 +404,14 @@ Welcome to Dhanvantari Ayurvedic Agencies. By accessing or shopping on our websi
 We deliver across all serviceable pincodes in India via trusted tier-1 logistics partners (Delhivery, BlueDart, and India Post).
 
 ### Shipping Charges
-* **Orders ₹499 and above**: FREE pan-India shipping.
-* **Orders below ₹499**: Flat ₹50 nominal delivery fee.
+* **All orders**: Flat ₹50 pan-India delivery charge. There is no free-shipping threshold.
 * **Cash on Delivery (COD)**: Available on select pincodes with a nominal verification fee.
 
 ### Tracking
 Once dispatched, an SMS and email notification with your AWB tracking link will be automatically generated.`,
       isPublished: true,
       metaTitle: "Shipping & Delivery Policy | Dhanvantari Ayurvedic Agencies",
-      metaDescription: "Learn about our pan-India delivery timeframes, free shipping thresholds, and tracking policies.",
+      metaDescription: "Learn about our pan-India delivery timeframes, flat ₹50 delivery charge, and tracking policies.",
     },
     {
       slug: "return-policy",
@@ -553,7 +552,7 @@ Applying warm herbal oil from scalp to toes for 5–10 minutes before showering 
       key: "announcement",
       value: {
         isEnabled: true,
-        text: "🌿 100% Authentic Ayurvedic Formulations — Free Delivery on Orders Over ₹499",
+        text: "🌿 100% Authentic Ayurvedic Formulations — Flat ₹50 Delivery Charge on All Orders",
         linkUrl: "/shop",
         badgeText: "PURE AYURVEDA",
       },
@@ -605,7 +604,7 @@ Applying warm herbal oil from scalp to toes for 5–10 minutes before showering 
           {
             icon: "Truck",
             title: "Fast Delivery",
-            description: "Free shipping on orders above ₹499, delivered pan-India.",
+            description: "Flat ₹50 delivery charge applies to every order, delivered pan-India.",
           },
         ],
         storyHeading: "Rooted in Tradition,",

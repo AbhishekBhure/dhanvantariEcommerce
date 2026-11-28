@@ -58,7 +58,7 @@ export default function ProductExperience({ product }: { product: ProductWithRev
   }
 
   return <>
-    <section className="section-container grid gap-10 pb-16 pt-4 md:grid-cols-2 md:gap-16 md:pb-24 md:pt-8">
+    <section className="section-container grid gap-10 pb-10 pt-4 md:grid-cols-2 md:gap-16 md:pb-14 md:pt-8">
       <div>
         <div className="relative aspect-square overflow-hidden rounded-xl bg-muted"><Image src={getImageUrl(images[imageIndex]?.url)} alt={images[imageIndex]?.altText ?? product.name} fill priority className="object-cover" sizes="(max-width: 768px) 100vw, 50vw" /></div>
         {images.length > 1 && <div className="mt-3 grid grid-cols-5 gap-2">{images.map((image, index) => <button key={image.id} type="button" onClick={() => setImageIndex(index)} aria-label={`View product image ${index + 1}`} className={`relative aspect-square overflow-hidden border ${imageIndex === index ? "border-brand-600" : "border-border"}`}><Image src={getImageUrl(image.url)} alt={image.altText ?? `${product.name} image ${index + 1}`} fill className="object-cover" sizes="100px" /></button>)}</div>}
@@ -74,7 +74,26 @@ export default function ProductExperience({ product }: { product: ProductWithRev
         <p className="mt-3 text-sm text-muted-foreground">{stock > 0 ? `${stock} available` : "Currently unavailable"}</p>
       </div>
     </section>
-    <section className="border-t border-border bg-brand-50/60"><div className="section-container grid gap-10 py-14 md:grid-cols-2 md:py-20"><div><h2 className="font-display text-3xl font-bold">Ingredients</h2><p className="mt-4 whitespace-pre-line leading-relaxed text-muted-foreground">{product.ingredients ?? "Details coming soon."}</p></div><div><h2 className="font-display text-3xl font-bold">How to use</h2><p className="mt-4 whitespace-pre-line leading-relaxed text-muted-foreground">{product.usageInstructions ?? "Usage instructions coming soon."}</p></div></div></section>
+    <section className="border-t border-border bg-brand-50/40">
+      <div className="section-container py-9 md:py-12">
+        <div className="grid gap-x-12 gap-y-8 md:grid-cols-2">
+          {product.description?.trim() && (
+            <div className="md:col-span-2">
+              <h2 className="font-display text-2xl font-bold md:text-3xl">Description</h2>
+              <p className="mt-3 max-w-5xl whitespace-pre-line leading-7 text-muted-foreground">{product.description.trim()}</p>
+            </div>
+          )}
+          <div className={product.description?.trim() ? "border-t border-border/70 pt-6" : ""}>
+            <h2 className="font-display text-2xl font-bold md:text-3xl">Ingredients</h2>
+            <p className="mt-3 whitespace-pre-line leading-7 text-muted-foreground">{product.ingredients ?? "Details coming soon."}</p>
+          </div>
+          <div className={product.description?.trim() ? "border-t border-border/70 pt-6" : ""}>
+            <h2 className="font-display text-2xl font-bold md:text-3xl">How to use</h2>
+            <p className="mt-3 whitespace-pre-line leading-7 text-muted-foreground">{product.usageInstructions ?? "Usage instructions coming soon."}</p>
+          </div>
+        </div>
+      </div>
+    </section>
     <section className="section-container py-14"><div className="grid gap-10 lg:grid-cols-[1fr_380px]"><div><h2 className="font-display text-3xl font-bold">Customer reviews</h2>{product.reviews?.length ? <div className="mt-5 divide-y border-y border-border">{product.reviews.map((review) => <article key={review.id} className="py-5"><div className="flex items-center gap-1 text-gold-600" aria-label={`${review.rating} out of 5 stars`}>{Array.from({ length: 5 }, (_, index) => <Star key={index} className="h-4 w-4" fill={index < review.rating ? "currentColor" : "none"} />)}</div>{review.title && <h3 className="mt-2 font-semibold">{review.title}</h3>}<p className="mt-2 text-sm leading-relaxed text-muted-foreground">{review.body}</p><p className="mt-2 text-xs text-muted-foreground">{review.user.name} · {new Date(review.createdAt).toLocaleDateString("en-IN")}</p></article>)}</div> : <p className="mt-4 text-sm text-muted-foreground">No approved reviews yet.</p>}</div>
       <div className="border border-border p-5"><h3 className="font-display text-xl font-bold">Review this product</h3>{user ? <form onSubmit={submitReview} className="mt-4 space-y-4"><label className="block text-sm font-medium">Rating<select value={rating} onChange={(event) => setRating(Number(event.target.value))} className="mt-1 h-10 w-full border border-input bg-white px-3">{[5,4,3,2,1].map((value) => <option key={value} value={value}>{value} star{value > 1 ? "s" : ""}</option>)}</select></label><label className="block text-sm font-medium">Title<input value={reviewTitle} onChange={(event) => setReviewTitle(event.target.value)} maxLength={100} className="mt-1 h-10 w-full border border-input px-3" /></label><label className="block text-sm font-medium">Review<textarea required minLength={10} maxLength={2000} value={reviewBody} onChange={(event) => setReviewBody(event.target.value)} rows={4} className="mt-1 w-full border border-input p-3" /></label>{reviewMessage && <p role="status" className="text-sm text-brand-700">{reviewMessage}</p>}{reviewError && <p role="alert" className="text-sm text-destructive">{reviewError}</p>}<button disabled={isSubmittingReview} className="h-10 w-full bg-brand-600 text-sm font-semibold text-white disabled:opacity-50">{isSubmittingReview ? "Submitting..." : "Submit review"}</button></form> : <p className="mt-3 text-sm text-muted-foreground">Sign in after delivery to review this product.</p>}</div></div></section>
   </>;

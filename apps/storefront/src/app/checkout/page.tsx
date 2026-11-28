@@ -701,11 +701,7 @@ export default function CheckoutPage() {
             </div>
             <div className="flex justify-between">
               <span>Shipping</span>
-              <span>
-                {cart.shippingCharge
-                  ? formatPrice(cart.shippingCharge)
-                  : "Free"}
-              </span>
+              <span>{formatPrice(cart.shippingCharge)}</span>
             </div>
             <div className="flex justify-between border-t border-border pt-3 text-base font-bold">
               <span>Total</span>

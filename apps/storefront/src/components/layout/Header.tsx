@@ -32,7 +32,7 @@ export default function Header() {
     badgeText?: string;
   }>({
     isEnabled: true,
-    text: "🌿 100% Authentic Ayurvedic Formulations — Free Delivery on Orders Over ₹499",
+    text: "🌿 100% Authentic Ayurvedic Formulations — Flat ₹50 Delivery Charge on All Orders",
     linkUrl: "/shop",
     badgeText: "PURE AYURVEDA",
   });

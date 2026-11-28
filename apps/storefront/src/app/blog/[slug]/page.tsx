@@ -239,7 +239,7 @@ export default async function BlogPostPage({ params }: ArticleProps) {
           </div>
           <h3 className="font-display text-2xl font-bold">Experience Authentic Ayurveda</h3>
           <p className="text-brand-200 text-sm max-w-xl mx-auto leading-relaxed">
-            All Dhanvantari products are formulated with the exact botanical preparations mentioned in our clinical guides. Free pan-India delivery on orders over ₹499.
+            All Dhanvantari products are formulated with the exact botanical preparations mentioned in our clinical guides. A flat ₹50 delivery charge applies to every order across India.
           </p>
           <div className="pt-2">
             <Link

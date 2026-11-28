@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { Decimal } from "@prisma/client/runtime/library";
 import prisma from "../lib/prisma.js";
+import { getShippingCharge } from "../lib/shipping.js";
 import {
   BadRequestError,
   NotFoundError,
@@ -85,6 +86,7 @@ export async function getCart(
     // Filter out unpublished items
     const validItems = cart.items.filter((i) => i.product.isPublished);
     const { subtotal, discount } = calculateCartTotals(validItems);
+    const shippingCharge = getShippingCharge(validItems.length);
 
     res.json({
       success: true,
@@ -105,8 +107,8 @@ export async function getCart(
           })),
           subtotal,
           discount,
-          shippingCharge: subtotal >= 499 ? 0 : 49,
-          total: subtotal + (subtotal >= 499 ? 0 : 49) - discount,
+          shippingCharge,
+          total: subtotal + shippingCharge - discount,
         },
       },
     });

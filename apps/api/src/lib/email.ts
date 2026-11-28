@@ -210,7 +210,7 @@ export async function sendWelcomeEmail(to: string, name: string): Promise<void> 
     ${button("Explore Our Products", `${STOREFRONT_URL}/shop`)}
     ${divider()}
     <p style="font-size:13px;color:#888;text-align:center;margin:0;">
-      🚚 Free shipping on orders over ₹499 &nbsp;·&nbsp; 🔒 100% Secure Checkout
+      🚚 Flat ₹50 delivery charge on all orders &nbsp;·&nbsp; 🔒 100% Secure Checkout
     </p>
   `,
     `Welcome to Dhanvantari, ${name}! Your Ayurvedic wellness journey begins.`

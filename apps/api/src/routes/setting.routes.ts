@@ -7,7 +7,7 @@ const router: ReturnType<typeof Router> = Router();
 const DEFAULT_SETTINGS: Record<string, unknown> = {
   announcement: {
     isEnabled: true,
-    text: "🌿 100% Authentic Ayurvedic Formulations — Free Delivery on Orders Over ₹499",
+    text: "🌿 100% Authentic Ayurvedic Formulations — Flat ₹50 Delivery Charge on All Orders",
     linkUrl: "/shop",
     badgeText: "PURE AYURVEDA",
   },
@@ -43,7 +43,7 @@ const DEFAULT_SETTINGS: Record<string, unknown> = {
       {
         icon: "Truck",
         title: "Fast Delivery",
-        description: "Free shipping on orders above ₹499, delivered pan-India.",
+        description: "Flat ₹50 delivery charge applies to every order, delivered pan-India.",
       },
     ],
     storyHeading: "Rooted in Tradition,",

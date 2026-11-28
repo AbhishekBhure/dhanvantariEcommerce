@@ -292,7 +292,7 @@ export default function StorefrontCustomizerPage() {
                   type="text"
                   value={announcementText}
                   onChange={(e) => setAnnouncementText(e.target.value)}
-                  placeholder="e.g. 🌿 100% Authentic Ayurvedic Formulations — Free Delivery on Orders Over ₹499"
+                  placeholder="e.g. 🌿 100% Authentic Ayurvedic Formulations — Flat ₹50 Delivery Charge on All Orders"
                   className="w-full text-sm px-3.5 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   required
                 />

@@ -8,9 +8,7 @@ import {
 import { CreateOrderInput } from "@dhanvantari/validation";
 import { OrderStatus } from "@dhanvantari/shared-types";
 import { sendOrderConfirmationEmail } from "../lib/email.js";
-
-const SHIPPING_THRESHOLD = 499;
-const SHIPPING_CHARGE = 49;
+import { getShippingCharge } from "../lib/shipping.js";
 
 function generateOrderNumber(): string {
   return `DHV-${Date.now()}-${nanoid(6).toUpperCase()}`;
@@ -130,7 +128,7 @@ export async function createOrder(
       userId
     );
 
-    const shippingCharge = subtotal >= SHIPPING_THRESHOLD ? 0 : SHIPPING_CHARGE;
+    const shippingCharge = getShippingCharge(cart.items.length);
     const total = Math.max(0, subtotal - couponDiscount + shippingCharge);
 
     // Create order in a transaction
